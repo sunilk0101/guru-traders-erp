@@ -279,18 +279,31 @@ class DocumentFormatService
             }
         }
 
+        // Captions on images that remain.
+        foreach ((array) ($data['image_captions'] ?? []) as $imageId => $caption) {
+            $format->images()->whereKey((int) $imageId)->update([
+                'caption' => filled($caption) ? trim((string) $caption) : null,
+            ]);
+        }
+
         $order = (int) $format->images()->max('sort_order');
+        $newCaptions = array_values((array) ($data['new_image_captions'] ?? []));
+        $newIndex = 0;
 
         foreach ((array) ($data['images'] ?? []) as $file) {
             if (! $file instanceof UploadedFile) {
                 continue;
             }
 
+            $caption = $newCaptions[$newIndex] ?? null;
+            $newIndex++;
+
             $format->images()->create([
                 // store() generates the name, so a file called "../../x.png"
                 // cannot decide where it lands.
                 'path'          => $file->store('order-formats', 'public'),
                 'original_name' => $file->getClientOriginalName(),
+                'caption'       => filled($caption) ? trim((string) $caption) : null,
                 'sort_order'    => ++$order,
             ]);
         }

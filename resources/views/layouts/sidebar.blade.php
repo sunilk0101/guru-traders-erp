@@ -47,30 +47,33 @@
 {{-- data-enable-persistence: AdminLTE defaults to off, which means the
      sidebar springs back open on every page load and the toggle is useless on
      a multi-screen app. On, it remembers the choice in localStorage. --}}
-<aside class="app-sidebar shadow-sm" data-bs-theme="light" data-enable-persistence="true">
+<aside class="app-sidebar shadow-sm" data-enable-persistence="true">
 
     <div class="sidebar-brand">
         <a href="{{ route('dashboard') }}" class="brand-link">
             <span class="brand-mark"><x-brand-logo :size="38" /></span>
-            <span class="brand-text">
-                Guru Traders
-                <small>Export ERP</small>
-            </span>
+            <span class="brand-text">Guru Traders</span>
         </a>
 
-        {{-- AdminLTE listens for [data-lte-toggle="sidebar"] anywhere on the
-             page, so this needs no wiring of its own. It is hidden once the
-             rail is collapsed — there is no room beside a hidden brand — but
-             hovering the rail expands it and brings the button back, and the
-             header hamburger works regardless. --}}
+        {{-- Single collapse control (Spire Zen style) — no hamburger in the header. --}}
         <button type="button" class="sidebar-toggle" data-lte-toggle="sidebar"
                 aria-label="Collapse sidebar" title="Collapse sidebar">
-            <i class="bi bi-chevron-double-left"></i>
+            <i class="bi bi-chevron-left"></i>
         </button>
     </div>
 
     <div class="sidebar-wrapper">
-        <nav class="mt-2">
+        <div class="sidebar-search px-3 pt-3 pb-2">
+            <label class="visually-hidden" for="sidebar-search">Search menu</label>
+            <div class="input-group input-group-sm sidebar-search-group">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="search" id="sidebar-search" class="form-control"
+                       placeholder="Search menu..." autocomplete="off">
+                <span class="input-group-text sidebar-search-kbd">/</span>
+            </div>
+        </div>
+
+        <nav>
             <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="menu" data-accordion="false">
 
                 <li class="nav-item">
@@ -274,9 +277,57 @@
                      that bill, we pay what is left, the buyer pays us, the agent
                      takes their cut.
                 --}}
-                @if($canAny(['purchase-bill.view', 'debit-note.view', 'payment.view', 'foreign-payment.view', 'agent-commission.view']))
+                @if($canAny(['billing.view', 'finance-tracker.view', 'voucher.view', 'budget.view', 'payroll.view', 'gst-filing.view', 'purchase-bill.view', 'debit-note.view', 'payment.view', 'foreign-payment.view', 'agent-commission.view']))
                     <li class="nav-header">Finance</li>
 
+                    @can('billing.view')
+                        <li class="nav-item">
+                            <a href="{{ route('finance.billing.index') }}"
+                               class="nav-link {{ request()->routeIs('finance.billing.*') ? 'active' : '' }}">
+                                <i class="nav-icon bi bi-receipt-cutoff"></i><p>Billing & Invoices</p>
+                            </a>
+                        </li>
+                    @endcan
+                    @can('finance-tracker.view')
+                        <li class="nav-item">
+                            <a href="{{ route('finance.tracker.index') }}"
+                               class="nav-link {{ request()->routeIs('finance.tracker.*') ? 'active' : '' }}">
+                                <i class="nav-icon bi bi-graph-up-arrow"></i><p>Finance Tracker</p>
+                            </a>
+                        </li>
+                    @endcan
+                    @can('voucher.view')
+                        <li class="nav-item">
+                            <a href="{{ route('finance.vouchers.index') }}"
+                               class="nav-link {{ request()->routeIs('finance.vouchers.*') ? 'active' : '' }}">
+                                <i class="nav-icon bi bi-journal-check"></i><p>Vouchers</p>
+                            </a>
+                        </li>
+                    @endcan
+                    @can('budget.view')
+                        <li class="nav-item">
+                            <a href="{{ route('finance.budget.index') }}"
+                               class="nav-link {{ request()->routeIs('finance.budget.*') ? 'active' : '' }}">
+                                <i class="nav-icon bi bi-bullseye"></i><p>Budget Planner</p>
+                            </a>
+                        </li>
+                    @endcan
+                    @can('payroll.view')
+                        <li class="nav-item">
+                            <a href="{{ route('finance.payroll.index') }}"
+                               class="nav-link {{ request()->routeIs('finance.payroll.*') ? 'active' : '' }}">
+                                <i class="nav-icon bi bi-person-badge"></i><p>Payroll & Salary</p>
+                            </a>
+                        </li>
+                    @endcan
+                    @can('gst-filing.view')
+                        <li class="nav-item">
+                            <a href="{{ route('finance.gst.index') }}"
+                               class="nav-link {{ request()->routeIs('finance.gst.*') ? 'active' : '' }}">
+                                <i class="nav-icon bi bi-file-earmark-spreadsheet"></i><p>GST Filings</p>
+                            </a>
+                        </li>
+                    @endcan
                     @can('purchase-bill.view')
                         <li class="nav-item">
                             <a href="{{ route('finance.purchase-bills.index') }}"

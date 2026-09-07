@@ -15,6 +15,7 @@ use App\Models\Designation;
 use App\Models\Incoterm;
 use App\Models\PaymentTerm;
 use App\Models\Port;
+use App\Models\ShipmentMethod;
 use App\Models\State;
 use App\Services\Masters\BuyerService;
 use App\Services\NumberSeriesService;
@@ -47,7 +48,7 @@ class BuyerController extends Controller implements HasMiddleware
             new Middleware('permission:buyer.edit', only: ['edit', 'update', 'toggleStatus']),
             new Middleware('permission:buyer.delete', only: ['destroy']),
             // Reachable from either the create or the edit form.
-            new Middleware('permission:buyer.create|buyer.edit', only: ['storePaymentTerm', 'storeDesignation']),
+            new Middleware('permission:buyer.create|buyer.edit', only: ['storePaymentTerm', 'storeDesignation', 'storeShipmentMethod']),
         ];
     }
 
@@ -202,6 +203,25 @@ class BuyerController extends Controller implements HasMiddleware
     }
 
     /**
+     * Quick-add for Shipment Method — same shape as storePaymentTerm().
+     * Buyer form stores the method name as free text historically; the
+     * dropdown posts that name, and typing a new one creates the lookup row.
+     */
+    public function storeShipmentMethod(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:80'],
+        ]);
+
+        $method = ShipmentMethod::firstOrCreate(
+            ['name' => trim($data['name'])],
+            ['status' => 'active']
+        );
+
+        return response()->json(['id' => $method->name, 'name' => $method->name]);
+    }
+
+    /**
      * Dropdown sources shared by the create and edit forms.
      *
      * Only active rows: a retired port or incoterm must not be selectable on a
@@ -267,6 +287,9 @@ class BuyerController extends Controller implements HasMiddleware
             'paymentTerms'    => PaymentTerm::active()->forSide('buyer')->orderBy('name')->pluck('name', 'id'),
             'incoterms'       => Incoterm::active()->orderBy('code')->get()->pluck('label', 'id'),
             'currencies'      => Currency::active()->orderBy('iso_code')->get()->pluck('label', 'id'),
+            // Col S — dropdown (client: free-text was wrong). Options keyed by
+            // name because buyers.shipment_method is still a string column.
+            'shipmentMethods' => ShipmentMethod::active()->orderBy('name')->pluck('name', 'name'),
 
             /*
              * Which payment terms open the advance / at-sight boxes. Sent to the

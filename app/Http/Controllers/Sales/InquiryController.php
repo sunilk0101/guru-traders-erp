@@ -203,7 +203,7 @@ class InquiryController extends Controller implements HasMiddleware
         // cancelled, so Product is the only authoritative source beyond the
         // Order Format's own unit chips.
         $products = Product::active()
-            ->with('bomItems')
+            ->with(['bomItems', 'incentives'])
             ->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->integer('category_id')))
             ->orderBy('name')
             ->get(['id', 'name', 'item_group_code', 'unit_po', 'unit_export'])
@@ -218,6 +218,15 @@ class InquiryController extends Controller implements HasMiddleware
                     'unit'           => $line->unit,
                     'is_custom'      => (bool) $line->is_custom,
                     'remarks'        => $line->remarks,
+                ])->values(),
+                // Rate % × FOB vs Cap × PCS → lower (same as ProductIncentive::claimAmount).
+                'incentives'  => $product->incentives->map(fn ($row) => [
+                    'scheme'      => $row->scheme,
+                    'label'       => $row->schemeLabel(),
+                    'percent_1'   => (float) ($row->percent_1 ?? 0),
+                    'percent_2'   => (float) ($row->percent_2 ?? 0),
+                    'cap_value'   => $row->cap_value !== null ? (float) $row->cap_value : null,
+                    'cap_value_2' => $row->cap_value_2 !== null ? (float) $row->cap_value_2 : null,
                 ])->values(),
             ]);
 
@@ -251,7 +260,7 @@ class InquiryController extends Controller implements HasMiddleware
     private function loadForDocument(Inquiry $inquiry): Inquiry
     {
         return $inquiry->load([
-            'buyer', 'category', 'format.columns', 'currency', 'source',
+            'buyer', 'category', 'format.columns', 'format.images', 'currency', 'source',
             'items' => fn ($q) => $q->with(['product', 'supplier', 'colours.sizes']),
         ]);
     }
@@ -290,7 +299,7 @@ class InquiryController extends Controller implements HasMiddleware
             // re-enforce the side, same call already made there.
             'agents' => Agent::active()->ofType('buyer')->orderBy('name')->get()->pluck('label', 'id'),
 
-            'formats' => DocumentFormat::active()->with(['units', 'columns', 'categories:id'])
+            'formats' => DocumentFormat::active()->with(['units', 'columns', 'categories:id', 'images'])
                 ->orderBy('name')->get(),
 
             'fobValues'  => FobValue::active()->orderBy('name')->pluck('name', 'id'),

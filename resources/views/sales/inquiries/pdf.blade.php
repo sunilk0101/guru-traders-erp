@@ -159,5 +159,21 @@
             </tr>
         </table>
     @endif
+
+    @php $refImages = $inquiry->format?->images ?? collect(); @endphp
+    @if($refImages->isNotEmpty())
+        <h3 style="margin-top:18px;font-size:12px;">Reference Images</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;">
+            @foreach($refImages as $image)
+                <div style="width:140px;text-align:center;">
+                    <img src="{{ $image->url }}" alt="{{ $image->original_name }}"
+                         style="width:140px;height:100px;object-fit:cover;border:1px solid #ccc;">
+                    @if($image->caption)
+                        <div style="font-size:10px;margin-top:4px;">{{ $image->caption }}</div>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+    @endif
 </body>
 </html>

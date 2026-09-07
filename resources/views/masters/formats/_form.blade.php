@@ -152,7 +152,13 @@
                 <tr>
                     <th style="width:28px"></th>
                     <th style="width:80px">Include</th>
-                    <th style="width:90px">Mandatory</th>
+                    <th style="width:110px">
+                        <div class="d-flex align-items-center gap-1">
+                            <input class="form-check-input m-0" type="checkbox" id="mandatory-select-all"
+                                   title="Check all mandatory">
+                            <label class="mb-0" for="mandatory-select-all">Mandatory</label>
+                        </div>
+                    </th>
                     <th style="width:220px">Column</th>
                     <th style="width:260px">Sub-columns</th>
                     <th style="width:110px">Visibility</th>
@@ -220,37 +226,45 @@
     <div class="mt-2">
         <label class="form-label fw-semibold">
             Reference Images
-            <span class="text-body-secondary fw-normal small">— shown on print / PDF / Excel export only</span>
+            <span class="text-body-secondary fw-normal small">— shown on print / PDF / Excel export only · defaults for Inquiry / OC / PO</span>
         </label>
 
-        {{-- Already saved. Unticking one removes it on save; the file itself is
-             deleted by the service, not left behind on disk. --}}
+        {{-- Already saved. Unticking one removes it on save; caption prints under the thumb. --}}
         @if($format && $format->images->isNotEmpty())
-            <div class="d-flex flex-wrap gap-3 mb-3">
+            <div class="d-flex flex-wrap gap-3 mb-3" id="existing-reference-images">
                 @foreach($format->images as $image)
-                    <label class="reference-image">
+                    <div class="reference-image">
                         <img src="{{ $image->url }}" alt="{{ $image->original_name }}">
                         <span class="reference-image-keep">
                             <input type="checkbox" name="keep_images[]" value="{{ $image->id }}" checked>
                             Keep
                         </span>
-                    </label>
+                        <input type="text" name="image_captions[{{ $image->id }}]"
+                               value="{{ old('image_captions.'.$image->id, $image->caption) }}"
+                               class="form-control form-control-sm reference-image-caption"
+                               maxlength="500" placeholder="Caption / instruction for print">
+                    </div>
                 @endforeach
             </div>
         @elseif($format)
-            {{-- Posted empty so the service knows the field was offered and an
-                 unticked-everything save really means "remove them all". --}}
             <input type="hidden" name="keep_images[]" value="">
         @endif
 
         <input type="file" name="images[]" id="images" multiple
                accept="image/jpeg,image/png,image/webp"
                class="form-control @error('images.*') is-invalid @enderror">
+        <div id="new-reference-previews" class="d-flex flex-wrap gap-3 mt-3"></div>
         <div class="form-text">
             Packing diagrams &middot; label samples &middot; marking references &middot; carton markings.
-            JPG, PNG or WebP, up to 4 MB each.
+            JPG, PNG or WebP, up to 4 MB each. Add a short caption under each thumbnail for print.
         </div>
         @error('images.*')
+            <div class="invalid-feedback d-block">{{ $message }}</div>
+        @enderror
+        @error('image_captions.*')
+            <div class="invalid-feedback d-block">{{ $message }}</div>
+        @enderror
+        @error('new_image_captions.*')
             <div class="invalid-feedback d-block">{{ $message }}</div>
         @enderror
     </div>
@@ -633,6 +647,38 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     renderPreview();
+
+    /* --------------------- Mandatory select-all --------------------- */
+    const mandatoryAll = document.getElementById('mandatory-select-all');
+    mandatoryAll?.addEventListener('change', function () {
+        document.querySelectorAll('.js-column-mandatory').forEach(function (box) {
+            box.checked = mandatoryAll.checked;
+        });
+    });
+
+    /* -------------- Reference image new-file thumbnails -------------- */
+    const imagesInput = document.getElementById('images');
+    const newPreviews = document.getElementById('new-reference-previews');
+
+    imagesInput?.addEventListener('change', function () {
+        if (! newPreviews) return;
+        newPreviews.innerHTML = '';
+        Array.from(imagesInput.files || []).forEach(function (file, index) {
+            const wrap = document.createElement('div');
+            wrap.className = 'reference-image';
+            const img = document.createElement('img');
+            img.alt = file.name;
+            img.src = URL.createObjectURL(file);
+            const caption = document.createElement('input');
+            caption.type = 'text';
+            caption.name = 'new_image_captions[' + index + ']';
+            caption.className = 'form-control form-control-sm reference-image-caption';
+            caption.maxLength = 500;
+            caption.placeholder = 'Caption / instruction for print';
+            wrap.append(img, caption);
+            newPreviews.append(wrap);
+        });
+    });
 });
 </script>
 @endpush

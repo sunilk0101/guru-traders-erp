@@ -184,7 +184,7 @@ class OrderConfirmationController extends Controller implements HasMiddleware
             'categories' => Category::active()->orderBy('name')->pluck('name', 'id'),
             'agents'     => Agent::active()->ofType('buyer')->orderBy('name')->get()->pluck('label', 'id'),
 
-            'formats' => DocumentFormat::active()->with(['units', 'columns', 'categories:id'])
+            'formats' => DocumentFormat::active()->with(['units', 'columns', 'categories:id', 'images'])
                 ->orderBy('name')->get(),
 
             'fobValues'  => FobValue::active()->orderBy('name')->pluck('name', 'id'),

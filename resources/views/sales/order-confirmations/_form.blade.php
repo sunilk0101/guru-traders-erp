@@ -41,6 +41,11 @@
             'allow_multiple_colours' => (bool) $f->allow_multiple_colours,
             'delivery_details'       => $f->delivery_details,
             'packing_details'        => $f->packing_details,
+            'reference_images'       => $f->images->map(fn ($img) => [
+                'url'     => $img->url,
+                'caption' => $img->caption,
+                'name'    => $img->original_name,
+            ])->values(),
             'units'                  => $f->units->pluck('name'),
             'categories'             => $f->categories->pluck('id'),
             'columns'                => $standardColumns,
@@ -278,7 +283,7 @@
 </x-ui.form-section>
 
 <x-ui.form-section title="Delivery & Packing Details" icon="bi-box-seam"
-                   subtitle="Pre-fills from Order Format · editable per OC · carries to PO.">
+                   subtitle="Pre-fills from Order Format · editable per OC · carries to PO. Reference images come from the format (print defaults).">
     <div class="row">
         <x-ui.textarea name="delivery_details" label="Delivery Details" required col="col-12"
                        rows="3" :value="$val('delivery_details')" />
@@ -286,6 +291,12 @@
     <div class="row">
         <x-ui.textarea name="packing_details" label="Packing Details" required col="col-12"
                        rows="3" :value="$val('packing_details')" />
+    </div>
+    <div class="mt-2">
+        <label class="form-label fw-semibold">Format reference images</label>
+        <div id="format-reference-images" class="d-flex flex-wrap gap-3 text-body-secondary small">
+            Pick an Order Format to load its packing / marking reference images.
+        </div>
     </div>
 </x-ui.form-section>
 
@@ -581,7 +592,37 @@ document.addEventListener('DOMContentLoaded', function () {
             if (! deliveryEl.value.trim()) deliveryEl.value = meta.delivery_details || '';
             if (! packingEl.value.trim()) packingEl.value = meta.packing_details || '';
         }
+        renderFormatReferenceImages(meta);
     });
+
+    function renderFormatReferenceImages(meta) {
+        const host = document.getElementById('format-reference-images');
+        if (! host) return;
+        const images = meta?.reference_images || [];
+        if (! images.length) {
+            host.className = 'd-flex flex-wrap gap-3 text-body-secondary small';
+            host.textContent = meta
+                ? 'This format has no reference images yet.'
+                : 'Pick an Order Format to load its packing / marking reference images.';
+            return;
+        }
+        host.className = 'd-flex flex-wrap gap-3';
+        host.innerHTML = '';
+        images.forEach(function (image) {
+            const card = document.createElement('div');
+            card.className = 'reference-image';
+            const img = document.createElement('img');
+            img.src = image.url;
+            img.alt = image.name || '';
+            const caption = document.createElement('div');
+            caption.className = 'reference-image-caption text-body-secondary';
+            caption.textContent = image.caption || image.name || '';
+            card.append(img, caption);
+            host.append(card);
+        });
+    }
+
+    renderFormatReferenceImages(formats[formatSelect.value]);
 
     /* ------------------------- Direct vs OC mode ------------------------- */
 

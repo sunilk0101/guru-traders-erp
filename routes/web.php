@@ -16,6 +16,12 @@ use App\Http\Controllers\Export\ExportDocumentController;
 use App\Http\Controllers\Export\ExportDocumentOcrController;
 use App\Http\Controllers\Export\PackingController;
 use App\Http\Controllers\Finance\FinanceController;
+use App\Http\Controllers\Finance\BillingController;
+use App\Http\Controllers\Finance\FinanceTrackerController;
+use App\Http\Controllers\Finance\VoucherController;
+use App\Http\Controllers\Finance\BudgetController;
+use App\Http\Controllers\Finance\PayrollController;
+use App\Http\Controllers\Finance\GstFilingController;
 use App\Http\Controllers\Procurement\InwardEntryController;
 use App\Http\Controllers\Procurement\PurchaseOrderController;
 use App\Http\Controllers\ProfileController;
@@ -81,6 +87,10 @@ Route::middleware('auth')->group(function () {
         // col K: "different rates with option to add in the future".
         Route::post('products/gst-rates', [ProductController::class, 'storeGstRate'])
             ->name('products.gst-rates.store');
+        Route::post('products/units', [ProductController::class, 'storeUnit'])
+            ->name('products.units.store');
+        Route::get('products/{product}/duplicate', [ProductController::class, 'duplicate'])
+            ->name('products.duplicate');
         Route::resource('products', ProductController::class);
 
         // Same ordering rule as products — before the resource, or
@@ -94,6 +104,8 @@ Route::middleware('auth')->group(function () {
         // Same quick-add, for the contact's Designation field.
         Route::post('buyers/designations', [BuyerController::class, 'storeDesignation'])
             ->name('buyers.designations.store');
+        Route::post('buyers/shipment-methods', [BuyerController::class, 'storeShipmentMethod'])
+            ->name('buyers.shipment-methods.store');
         Route::resource('buyers', BuyerController::class);
 
         /*
@@ -280,6 +292,33 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::prefix('finance')->name('finance.')->group(function () {
+        Route::get('billing', [BillingController::class, 'index'])->middleware('permission:billing.view')->name('billing.index');
+        Route::post('billing', [BillingController::class, 'store'])->middleware('permission:billing.create')->name('billing.store');
+        Route::post('billing/{billing}/pay', [BillingController::class, 'recordPayment'])->middleware('permission:billing.edit')->name('billing.pay');
+        Route::delete('billing/{billing}', [BillingController::class, 'destroy'])->middleware('permission:billing.delete')->name('billing.destroy');
+
+        Route::get('tracker', [FinanceTrackerController::class, 'index'])->middleware('permission:finance-tracker.view')->name('tracker.index');
+        Route::post('tracker', [FinanceTrackerController::class, 'storeTransaction'])->middleware('permission:finance-tracker.create')->name('tracker.store');
+        Route::delete('tracker/{transaction}', [FinanceTrackerController::class, 'destroyTransaction'])->middleware('permission:finance-tracker.delete')->name('tracker.destroy');
+
+        Route::get('vouchers', [VoucherController::class, 'index'])->middleware('permission:voucher.view')->name('vouchers.index');
+        Route::post('vouchers', [VoucherController::class, 'store'])->middleware('permission:voucher.create')->name('vouchers.store');
+        Route::post('vouchers/{voucher}/approve', [VoucherController::class, 'approve'])->middleware('permission:voucher.approve')->name('vouchers.approve');
+        Route::post('vouchers/{voucher}/reject', [VoucherController::class, 'reject'])->middleware('permission:voucher.approve')->name('vouchers.reject');
+        Route::delete('vouchers/{voucher}', [VoucherController::class, 'destroy'])->middleware('permission:voucher.delete')->name('vouchers.destroy');
+        Route::post('vouchers/{id}/restore', [VoucherController::class, 'restore'])->middleware('permission:voucher.delete')->name('vouchers.restore');
+
+        Route::get('budget', [BudgetController::class, 'index'])->middleware('permission:budget.view')->name('budget.index');
+        Route::post('budget', [BudgetController::class, 'storeTarget'])->middleware('permission:budget.create')->name('budget.store');
+
+        Route::get('payroll', [PayrollController::class, 'index'])->middleware('permission:payroll.view')->name('payroll.index');
+        Route::post('payroll/process', [PayrollController::class, 'process'])->middleware('permission:payroll.process')->name('payroll.process');
+        Route::put('payroll/{payroll}', [PayrollController::class, 'update'])->middleware('permission:payroll.edit')->name('payroll.update');
+        Route::delete('payroll/{payroll}', [PayrollController::class, 'destroy'])->middleware('permission:payroll.delete')->name('payroll.destroy');
+
+        Route::get('gst', [GstFilingController::class, 'index'])->middleware('permission:gst-filing.view')->name('gst.index');
+        Route::put('gst/{gst}', [GstFilingController::class, 'updateStatus'])->middleware('permission:gst-filing.edit')->name('gst.update');
+
         Route::get('purchase-bills', [FinanceController::class, 'purchaseBills'])
             ->middleware('permission:purchase-bill.view')
             ->name('purchase-bills.index');

@@ -99,6 +99,11 @@ abstract class DocumentFormatRequest extends FormRequest
             // Ids of already-saved images the user did not remove.
             'keep_images'   => ['nullable', 'array'],
             'keep_images.*' => ['integer'],
+
+            'image_captions'   => ['nullable', 'array'],
+            'image_captions.*' => ['nullable', 'string', 'max:500'],
+            'new_image_captions'   => ['nullable', 'array'],
+            'new_image_captions.*' => ['nullable', 'string', 'max:500'],
         ];
     }
 

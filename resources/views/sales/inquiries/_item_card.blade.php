@@ -184,6 +184,12 @@
                     </div>
                 </div>
 
+                <div class="inquiry-incentives border rounded p-2 mb-3 bg-body-tertiary d-none" data-incentives-box>
+                    <div class="fw-semibold small mb-1">Export incentives (estimate)</div>
+                    <div class="form-text mb-1">Claim = min(Rate% × FOB amount, Cap × PCS). FOB amount = Price × Qty.</div>
+                    <div class="small js-incentive-estimate text-body-secondary">Select a product with schemes to estimate.</div>
+                </div>
+
                 <div class="colours-wrap">
                     @foreach($iColours as $colour)
                         @php

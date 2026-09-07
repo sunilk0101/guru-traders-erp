@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class DocumentFormatImage extends Model
 {
-    protected $fillable = ['path', 'original_name', 'sort_order'];
+    protected $fillable = ['path', 'original_name', 'caption', 'sort_order'];
 
     protected function casts(): array
     {

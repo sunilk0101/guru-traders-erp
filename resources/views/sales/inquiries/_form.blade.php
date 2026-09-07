@@ -49,6 +49,11 @@
             'allow_multiple_colours' => (bool) $f->allow_multiple_colours,
             'delivery_details'       => $f->delivery_details,
             'packing_details'        => $f->packing_details,
+            'reference_images'       => $f->images->map(fn ($img) => [
+                'url'     => $img->url,
+                'caption' => $img->caption,
+                'name'    => $img->original_name,
+            ])->values(),
             'units'                  => $f->units->pluck('name'),
             'categories'             => $f->categories->pluck('id'),
             'columns'                => $standardColumns,
@@ -177,7 +182,7 @@
 </x-ui.form-section>
 
 <x-ui.form-section title="Delivery & Packing Details" icon="bi-box-seam"
-                   subtitle="Pre-fills from Order Format · editable per inquiry.">
+                   subtitle="Pre-fills from Order Format · editable per inquiry. Reference images come from the format (print defaults).">
     <div class="row">
         <x-ui.textarea name="delivery_details" label="Delivery Details" required col="col-12"
                        rows="3" :value="$val('delivery_details')" />
@@ -185,6 +190,12 @@
     <div class="row">
         <x-ui.textarea name="packing_details" label="Packing Details" required col="col-12"
                        rows="3" :value="$val('packing_details')" />
+    </div>
+    <div class="mt-2">
+        <label class="form-label fw-semibold">Format reference images</label>
+        <div id="format-reference-images" class="d-flex flex-wrap gap-3 text-body-secondary small">
+            Pick an Order Format to load its packing / marking reference images.
+        </div>
     </div>
 </x-ui.form-section>
 
@@ -514,6 +525,40 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    function renderIncentiveEstimate(itemEl) {
+        const box = itemEl.querySelector('[data-incentives-box]');
+        const host = itemEl.querySelector('.js-incentive-estimate');
+        const productSelect = itemEl.querySelector('.js-product-select');
+        const opt = productSelect && productSelect.selectedOptions[0];
+        if (! box || ! host) return;
+
+        let schemes = [];
+        try { schemes = JSON.parse(opt?.dataset?.incentives || '[]') || []; } catch (e) { schemes = []; }
+
+        if (! schemes.length) {
+            box.classList.add('d-none');
+            host.textContent = 'Select a product with schemes to estimate.';
+            return;
+        }
+
+        box.classList.remove('d-none');
+        const price = parseFloat(itemEl.querySelector('.js-price')?.value) || 0;
+        const qty = parseFloat(itemEl.querySelector('.js-qty-display')?.value) || 0;
+        const fobAmount = price * qty;
+
+        host.innerHTML = schemes.map(function (row) {
+            const ratePct = (parseFloat(row.percent_1) || 0) + (parseFloat(row.percent_2) || 0);
+            const rateAmt = fobAmount * (ratePct / 100);
+            const hasCap = row.cap_value !== null && row.cap_value !== undefined;
+            const capAmt = hasCap ? qty * (parseFloat(row.cap_value) || 0) : null;
+            const claim = capAmt === null ? rateAmt : Math.min(rateAmt, capAmt);
+            const capText = hasCap ? ('Cap×PCS ₹' + capAmt.toFixed(2)) : 'no cap';
+            return '<div><strong>' + (row.label || row.scheme) + '</strong>: '
+                + 'Rate×FOB ₹' + rateAmt.toFixed(2) + ' · ' + capText
+                + ' → <span class="text-success">Claim ₹' + claim.toFixed(2) + '</span></div>';
+        }).join('');
+    }
+
     function buildBomRow(data) {
         data = data || {};
         const node = bomTemplate.content.cloneNode(true);
@@ -554,6 +599,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                     if (row.bom !== undefined) {
                         opt.dataset.bom = JSON.stringify(row.bom || []);
+                    }
+                    if (row.incentives !== undefined) {
+                        opt.dataset.incentives = JSON.stringify(row.incentives || []);
                     }
                     if (selected && String(row.id) === String(selected)) { opt.selected = true; found = true; }
                     selectEl.appendChild(opt);
@@ -599,7 +647,37 @@ document.addEventListener('DOMContentLoaded', function () {
             if (! deliveryEl.value.trim()) deliveryEl.value = meta.delivery_details || '';
             if (! packingEl.value.trim()) packingEl.value = meta.packing_details || '';
         }
+        renderFormatReferenceImages(meta);
     });
+
+    function renderFormatReferenceImages(meta) {
+        const host = document.getElementById('format-reference-images');
+        if (! host) return;
+        const images = meta?.reference_images || [];
+        if (! images.length) {
+            host.className = 'd-flex flex-wrap gap-3 text-body-secondary small';
+            host.textContent = meta
+                ? 'This format has no reference images yet.'
+                : 'Pick an Order Format to load its packing / marking reference images.';
+            return;
+        }
+        host.className = 'd-flex flex-wrap gap-3';
+        host.innerHTML = '';
+        images.forEach(function (image) {
+            const card = document.createElement('div');
+            card.className = 'reference-image';
+            const img = document.createElement('img');
+            img.src = image.url;
+            img.alt = image.name || '';
+            const caption = document.createElement('div');
+            caption.className = 'reference-image-caption text-body-secondary';
+            caption.textContent = image.caption || image.name || '';
+            card.append(img, caption);
+            host.append(card);
+        });
+    }
+
+    renderFormatReferenceImages(formats[formatSelect.value]);
 
     /* ------------------------------ Item rows ------------------------------ */
 
@@ -734,7 +812,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     itemsWrap.addEventListener('input', function (e) {
         if (e.target.classList.contains('js-size-qty') || e.target.classList.contains('js-price')) {
-            recalcItem(e.target.closest('.inquiry-item'));
+            const itemEl = e.target.closest('.inquiry-item');
+            recalcItem(itemEl);
+            renderIncentiveEstimate(itemEl);
         }
     });
 
@@ -747,6 +827,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const itemEl = e.target.closest('.inquiry-item');
             applyProductUnit(itemEl);
             applyProductBom(itemEl);
+            renderIncentiveEstimate(itemEl);
             return;
         }
         if (e.target.classList.contains('js-unit-select')) {

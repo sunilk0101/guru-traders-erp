@@ -1,0 +1,367 @@
+/* Guru Traders Export ERP — dual theme (matched to Garment ERP look) */
+
+:root {
+    --erp-bg: #0b0f19;
+    --erp-card-bg: #111827;
+    --erp-card-border: rgba(255, 255, 255, 0.1);
+    --erp-primary: #2563eb;
+    --erp-primary-hover: #1d4ed8;
+    --erp-gold: #c9a227;
+    --erp-gold-light: #e5c158;
+    --erp-success: #10b981;
+    --erp-warning: #f59e0b;
+    --erp-danger: #ef4444;
+    --erp-text-main: #f8fafc;
+    --erp-text-muted: #94a3b8;
+}
+
+[data-bs-theme="light"] {
+    --erp-bg: #f5f7fa;
+    --erp-card-bg: #ffffff;
+    --erp-card-border: #e9edf2;
+    --erp-text-main: #111827;
+    --erp-text-muted: #6b7280;
+}
+
+html,
+body,
+body.guru-traders-theme {
+    background-color: var(--erp-bg) !important;
+    color: var(--erp-text-main);
+    font-family: 'Source Sans 3', sans-serif;
+}
+
+body,
+html,
+input,
+button,
+select,
+textarea,
+h1, h2, h3, h4, h5, h6,
+.navbar-brand,
+.brand-text {
+    font-family: 'Source Sans 3', sans-serif;
+}
+
+.app-content-header h3,
+.app-content-header h1,
+.app-content-header h2 {
+    font-weight: 600 !important;
+    font-size: 1.5rem;
+    color: var(--erp-text-main) !important;
+}
+
+.app-main,
+.app-content,
+.app-content-header {
+    background-color: transparent;
+}
+
+.app-header {
+    background-color: var(--erp-bg) !important;
+    border-bottom: 1px solid var(--erp-card-border) !important;
+}
+
+.card {
+    background-color: var(--erp-card-bg);
+    border-color: var(--erp-card-border);
+    color: var(--erp-text-main);
+}
+
+.card-header {
+    background-color: transparent;
+    border-bottom-color: var(--erp-card-border);
+    color: var(--erp-text-main);
+}
+
+/* ==================== SIDEBAR LIGHT ==================== */
+[data-bs-theme="light"] .app-sidebar {
+    background-color: #ffffff !important;
+    border-right: 1px solid #e9edf2 !important;
+}
+
+[data-bs-theme="light"] .app-sidebar .sidebar-brand {
+    background-color: #ffffff !important;
+    border-bottom: 1px solid #eef1f5 !important;
+}
+
+[data-bs-theme="light"] .app-sidebar .brand-text {
+    color: #111827 !important;
+}
+
+[data-bs-theme="light"] .app-sidebar .brand-text small {
+    color: #9aa4b2 !important;
+}
+
+[data-bs-theme="light"] .app-sidebar .nav-header {
+    color: #9aa4b2 !important;
+}
+
+[data-bs-theme="light"] .app-sidebar .sidebar-menu .nav-link {
+    color: #4b5563 !important;
+}
+
+[data-bs-theme="light"] .app-sidebar .sidebar-menu .nav-link p {
+    color: #4b5563 !important;
+}
+
+[data-bs-theme="light"] .app-sidebar .sidebar-menu .nav-link .nav-icon {
+    color: #8b95a5 !important;
+}
+
+[data-bs-theme="light"] .app-sidebar .sidebar-menu .nav-link:hover {
+    background-color: #f3f6fa !important;
+    color: #111827 !important;
+}
+
+[data-bs-theme="light"] .app-sidebar .sidebar-menu .nav-link:hover p {
+    color: #111827 !important;
+}
+
+[data-bs-theme="light"] .app-sidebar .sidebar-menu .nav-link:hover .nav-icon {
+    color: #2563eb !important;
+}
+
+[data-bs-theme="light"] .app-sidebar .sidebar-menu .nav-link.active {
+    background-color: #eff4ff !important;
+    color: #1d4ed8 !important;
+    box-shadow: inset 3px 0 0 #2563eb !important;
+}
+
+[data-bs-theme="light"] .app-sidebar .sidebar-menu .nav-link.active p {
+    color: #1d4ed8 !important;
+}
+
+[data-bs-theme="light"] .app-sidebar .sidebar-menu .nav-link.active .nav-icon {
+    color: #2563eb !important;
+}
+
+[data-bs-theme="light"] .app-sidebar .sidebar-toggle:hover {
+    background: #f3f6fa !important;
+    color: #2563eb !important;
+}
+
+/* ==================== SIDEBAR DARK (Garment match) ==================== */
+[data-bs-theme="dark"] .app-sidebar {
+    background-color: #0f172a !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .sidebar-brand {
+    background-color: #0f172a !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .brand-text {
+    color: #ffffff !important;
+    font-weight: 600;
+    font-size: .98rem;
+}
+
+[data-bs-theme="dark"] .app-sidebar .brand-text small {
+    color: #c9a227 !important;
+    font-weight: 500;
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+
+[data-bs-theme="dark"] .app-sidebar .brand-mark > div {
+    background-color: #c9a227 !important;
+    box-shadow: 0 2px 6px rgba(201, 162, 39, .35) !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .nav-header {
+    color: #94a3b8 !important;
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-bs-theme="dark"] .app-sidebar .sidebar-menu .nav-link {
+    color: #cbd5e1 !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .sidebar-menu .nav-link p {
+    color: #cbd5e1 !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .sidebar-menu .nav-link .nav-icon {
+    color: #94a3b8 !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .sidebar-menu .nav-link:hover {
+    background-color: #1e293b !important;
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .sidebar-menu .nav-link:hover p {
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .sidebar-menu .nav-link:hover .nav-icon {
+    color: #c9a227 !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .sidebar-menu .nav-link.active {
+    background-color: rgba(201, 162, 39, 0.16) !important;
+    color: #ffffff !important;
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 #c9a227 !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .sidebar-menu .nav-link.active p {
+    color: #ffffff !important;
+    font-weight: 600;
+}
+
+[data-bs-theme="dark"] .app-sidebar .sidebar-menu .nav-link.active .nav-icon {
+    color: #ffffff !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .sidebar-toggle {
+    color: #94a3b8 !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .sidebar-toggle:hover {
+    background: #1e293b !important;
+    color: #c9a227 !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .nav-link.soon {
+    color: #64748b !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .nav-link.soon .nav-icon {
+    color: #475569 !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .nav-link.soon:hover {
+    background: #1e293b !important;
+    color: #94a3b8 !important;
+}
+
+/* Collapsed icon rail (works with sidebar-without-hover — no :hover expand). */
+[data-bs-theme="dark"] .sidebar-mini.sidebar-collapse .app-sidebar .sidebar-menu .nav-link.active {
+    box-shadow: inset 3px 0 0 #c9a227 !important;
+    background-color: rgba(201, 162, 39, 0.28) !important;
+}
+
+[data-bs-theme="dark"] .sidebar-mini.sidebar-collapse .app-sidebar .sidebar-menu .nav-header {
+    border-top-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+[data-bs-theme="dark"] .sidebar-mini.sidebar-collapse .app-sidebar .sidebar-menu .nav-link p,
+[data-bs-theme="dark"] .sidebar-mini.sidebar-collapse .app-sidebar .brand-text {
+    display: none !important;
+}
+
+[data-bs-theme="dark"] .app-sidebar .sidebar-wrapper::-webkit-scrollbar-thumb {
+    background: #334155;
+}
+
+/* Breadcrumbs */
+.erp-breadcrumb {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .15rem .35rem;
+    font-size: .82rem;
+    padding: .15rem .25rem;
+    min-width: 0;
+}
+
+.erp-breadcrumb-sep { font-size: .65rem; color: var(--erp-text-muted); }
+.erp-breadcrumb-link { color: var(--erp-text-muted); text-decoration: none; white-space: nowrap; }
+.erp-breadcrumb-link:hover { color: var(--erp-primary); }
+.erp-breadcrumb-current { color: var(--erp-text-main); font-weight: 600; white-space: nowrap; }
+
+/* Table header bar — same white strip as Garment ERP */
+[data-bs-theme="dark"] .table thead th,
+[data-bs-theme="dark"] .table > thead {
+    --bs-table-bg: #ffffff;
+    --bs-table-color: #111827;
+    background-color: #ffffff !important;
+    color: #111827 !important;
+}
+
+[data-bs-theme="dark"] .table {
+    --bs-table-bg: transparent;
+    --bs-table-color: #e2e8f0;
+    --bs-table-striped-bg: rgba(255, 255, 255, 0.03);
+    --bs-table-hover-bg: rgba(37, 99, 235, 0.08);
+    --bs-table-border-color: rgba(255, 255, 255, 0.08);
+    color: #e2e8f0;
+}
+
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select {
+    background-color: #0f172a;
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #e2e8f0;
+}
+
+[data-bs-theme="dark"] .form-control:focus,
+[data-bs-theme="dark"] .form-select:focus {
+    background-color: #0f172a;
+    border-color: #2563eb;
+    color: #f8fafc;
+}
+
+[data-bs-theme="dark"] .form-control::placeholder {
+    color: #64748b;
+}
+
+[data-bs-theme="dark"] .form-control[readonly] {
+    background-color: #1e293b;
+    color: #94a3b8;
+}
+
+[data-bs-theme="dark"] .form-section-head {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-bs-theme="dark"] .form-section-title {
+    color: #f8fafc;
+}
+
+[data-bs-theme="dark"] .form-section-subtitle,
+[data-bs-theme="dark"] .col-form-label,
+[data-bs-theme="dark"] .form-label {
+    color: #cbd5e1;
+}
+
+[data-bs-theme="dark"] .form-actions {
+    background: linear-gradient(to top, #0b0f19 70%, rgba(11, 15, 25, 0));
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-bs-theme="dark"] .grid-table .scheme-name {
+    color: #e2e8f0;
+}
+
+[data-bs-theme="dark"] .text-body-secondary,
+[data-bs-theme="dark"] .text-muted {
+    color: #94a3b8 !important;
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary {
+    color: #cbd5e1;
+    border-color: rgba(255, 255, 255, 0.18);
+}
+
+[data-bs-theme="dark"] .btn-outline-secondary:hover {
+    background: #1e293b;
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+/* Code chips in product list */
+[data-bs-theme="dark"] .badge.text-bg-light,
+[data-bs-theme="dark"] .bg-light {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.5); }

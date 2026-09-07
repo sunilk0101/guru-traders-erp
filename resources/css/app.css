@@ -6,6 +6,7 @@
 @import "bootstrap-icons/font/bootstrap-icons.css";
 @import "admin-lte/dist/css/adminlte.min.css";
 @import "tom-select/dist/css/tom-select.bootstrap5.css";
+@import "./guru-traders-theme.css";
 
 /* Tom Select renders its own control; align it with Bootstrap form-select
    sizing so a searchable dropdown and a plain one line up in the same row. */

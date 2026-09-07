@@ -372,20 +372,16 @@
 
 {{-- ====================== O–P · AGENT ============================= --}}
 <x-ui.form-section title="Agent" icon="bi-person-badge"
-                   subtitle="Optional — only agents marked as buyer-side are listed.">
+                   subtitle="Select only — list shows agents marked Buyer-side in Agent Master. New agents default to Buyer-side.">
     <div class="form-stack">
 
-        {{-- Col O — "only those which are a part of buyer side selected in
-             agent master should show here". The list is filtered by the
-             controller and the same rule is re-checked on submit. --}}
+        {{-- Col O — select from Agent Master only (no free typing). --}}
         <x-ui.select name="agent_id" label="Agent" :options="$agents"
                      :selected="$buyer?->agent_id" horizontal searchable
                      placeholder="Search agent…"
-                     :hint="count($agents) ? null : 'No buyer-side agents exist yet.'" />
+                     hint="Missing an agent? Open Agent Master and set Agent Type = Buyer-side." />
 
-        {{-- Col P. Type and value are separate columns so settlement maths never
-             parses a label — '2%' and '2 USD per piece' cannot both come out of
-             one text field. --}}
+        {{-- Col P — auto-filled from Agent Master; unlock to override. --}}
         <div class="row form-line">
             <label for="agent_commission_value" class="col-sm-4 col-lg-3 col-form-label fw-semibold">
                 Agent Commission
@@ -396,20 +392,24 @@
                            id="agent_commission_value" name="agent_commission_value"
                            value="{{ old('agent_commission_value', $buyer?->agent_commission_value) }}"
                            class="form-control @error('agent_commission_value') is-invalid @enderror"
-                           placeholder="0.0000">
-                    <select name="agent_commission_type" id="agent_commission_type" style="max-width:140px"
-                            class="form-select @error('agent_commission_type') is-invalid @enderror">
+                           placeholder="0.0000" readonly>
+                    <select id="agent_commission_type" style="max-width:140px"
+                            class="form-select @error('agent_commission_type') is-invalid @enderror" disabled>
                         @foreach(['percent' => '% Percent', 'amount' => 'Fixed amount'] as $value => $text)
                             <option value="{{ $value }}"
                                 @selected(old('agent_commission_type', $buyer?->agent_commission_type) === $value)>{{ $text }}</option>
                         @endforeach
                     </select>
                 </div>
+                <input type="hidden" name="agent_commission_type" id="agent_commission_type_hidden"
+                       value="{{ old('agent_commission_type', $buyer?->agent_commission_type ?? 'percent') }}">
                 @error('agent_commission_value')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                 @error('agent_commission_type')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-                {{-- Change request #9 — auto-filled from the Agent Master on selection above; stays editable. --}}
-                <div class="form-text">
-                    Auto-filled when you pick an Agent above &middot; edit here to override for this buyer.
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" id="override-agent-commission">
+                    <label class="form-check-label small" for="override-agent-commission">
+                        Override commission for this buyer (otherwise taken from Agent Master)
+                    </label>
                 </div>
             </div>
         </div>
@@ -481,10 +481,12 @@
                      placeholder="Search incoterms…"
                      hint="The default above is added automatically if you leave it out." />
 
-        {{-- Col S — typed, not picked. "Air + Sea" is a normal answer, not a
-             contradiction, so it is free text rather than a single choice. --}}
-        <x-ui.field name="shipment_method" label="Shipment Method" :value="$buyer?->shipment_method"
-                    horizontal maxlength="120" placeholder="e.g. Air + Sea" />
+        {{-- Col S — dropdown from Shipment Method lookup (client: not free text). --}}
+        <x-ui.select name="shipment_method" label="Shipment Method" :options="$shipmentMethods"
+                     :selected="$buyer?->shipment_method" horizontal searchable
+                     placeholder="Search method…"
+                     data-create-url="{{ route('masters.buyers.shipment-methods.store') }}"
+                     hint="Type a new method to add it for next time." />
 
         {{-- Col T — a buyer invoiced in USD on one order and AED on the next is
              one buyer, so the accepted set is separate from the default. --}}
@@ -804,14 +806,41 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     /* ------------------------------------------------------------------ *
-     * Change request #9 — selecting an Agent fills the Commission fields
-     * from the Agent Master's own first commission entry. Stays editable
-     * afterwards — this only fires on the user changing the Agent field.
+     * Agent commission — filled from Agent Master; locked until Override.
      * ------------------------------------------------------------------ */
     const agentSelect            = document.getElementById('agent_id');
     const agentCommissionValue   = document.getElementById('agent_commission_value');
     const agentCommissionType    = document.getElementById('agent_commission_type');
+    const agentCommissionHidden  = document.getElementById('agent_commission_type_hidden');
+    const overrideCommission     = document.getElementById('override-agent-commission');
     const agentCommissions       = @json($agentCommissions);
+
+    function syncCommissionTypeHidden() {
+        if (agentCommissionHidden && agentCommissionType) {
+            agentCommissionHidden.value = agentCommissionType.value;
+        }
+    }
+
+    function setCommissionLocked(locked) {
+        if (! agentCommissionValue || ! agentCommissionType) return;
+        agentCommissionValue.readOnly = locked;
+        agentCommissionType.disabled = locked;
+        if (locked) syncCommissionTypeHidden();
+    }
+
+    overrideCommission?.addEventListener('change', function () {
+        setCommissionLocked(! overrideCommission.checked);
+        if (! overrideCommission.checked) {
+            // Re-apply master values when locking again.
+            const id  = agentSelect?.value;
+            const row = id ? agentCommissions[id] : null;
+            if (row) {
+                agentCommissionValue.value = row.value;
+                agentCommissionType.value  = row.type;
+                syncCommissionTypeHidden();
+            }
+        }
+    });
 
     agentSelect?.addEventListener('change', function () {
         const id  = agentSelect.value;
@@ -821,7 +850,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
         agentCommissionValue.value = row.value;
         agentCommissionType.value  = row.type;
+        syncCommissionTypeHidden();
+        if (overrideCommission) {
+            overrideCommission.checked = false;
+            setCommissionLocked(true);
+        }
     });
+
+    agentCommissionType?.addEventListener('change', syncCommissionTypeHidden);
+    setCommissionLocked(! (overrideCommission?.checked));
 });
 </script>
 @endpush
