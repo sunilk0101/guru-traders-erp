@@ -16,8 +16,12 @@ use Illuminate\Support\Facades\Schema;
  *
  * Source: dr5hn/countries-states-cities-database (ODbL).
  *
- * City-level CSC "states" (e.g. Hungary "city with county rights" like
- * Kaposvár) are skipped so they appear only as cities under their county.
+ * Rules that keep State ≠ City:
+ * - Skip place-level CSC "states" (city with county rights, town, …).
+ * - Prefer top-level admin rows; child municipalities (parent_id set) become
+ *   cities under their parent (e.g. MH Utrik → city under Ratak).
+ * - Never insert a city whose name matches its parent state name.
+ * - Empty leftover states are folded into a per-country "Regions" state.
  */
 class ImportWorldGeoCommand extends Command
 {
@@ -33,6 +37,15 @@ class ImportWorldGeoCommand extends Command
     /** @var array<int, int> CSC state id => our states.id */
     private array $cscStateMap = [];
 
+    /** @var array<int, int> Child CSC state id => our parent states.id */
+    private array $childCscToStateId = [];
+
+    /** @var array<int, string> Our state id => name */
+    private array $ourStateNames = [];
+
+    /** @var array<int, array<string, mixed>> CSC id => row */
+    private array $cscRowsById = [];
+
     public function handle(): int
     {
         $this->dataDir = storage_path('app/geo');
@@ -46,36 +59,20 @@ class ImportWorldGeoCommand extends Command
 
         $statesPath = $this->ensureStatesJson();
         $this->importStates($statesPath);
+        $this->promoteChildDivisionsAsCities();
 
         if (! $this->option('states-only')) {
             $citiesPath = $this->ensureCitiesJson();
             $this->importCities($citiesPath);
         }
 
+        $this->rescueEmptyStates();
         $this->pruneEmptyStates();
+        $this->dropSameNameCities();
 
         $this->info('Done. states='.State::count().' cities='.City::count());
 
         return self::SUCCESS;
-    }
-
-    /**
-     * Drop admin rows that ended up with no cities (mis-typed CSC places
-     * like Hungary's Zalaegerszeg labeled "county", or empty shells).
-     */
-    private function pruneEmptyStates(): void
-    {
-        $ids = State::query()
-            ->whereDoesntHave('cities')
-            ->pluck('id');
-
-        if ($ids->isEmpty()) {
-            return;
-        }
-
-        $count = $ids->count();
-        State::query()->whereIn('id', $ids)->delete();
-        $this->info("Pruned empty states={$count}");
     }
 
     private function rebuildTables(): void
@@ -99,6 +96,9 @@ class ImportWorldGeoCommand extends Command
         });
 
         $this->cscStateMap = [];
+        $this->childCscToStateId = [];
+        $this->ourStateNames = [];
+        $this->cscRowsById = [];
         $this->info('Cleared states/cities.');
     }
 
@@ -180,29 +180,62 @@ class ImportWorldGeoCommand extends Command
             'urban community',
         ];
 
-        foreach ($excluded as $bad) {
-            if ($type === $bad) {
-                return false;
+        return ! in_array($type, $excluded, true);
+    }
+
+    /**
+     * Walk CSC parent_id until a top-level admin row (no admin parent).
+     */
+    private function topAdminCscId(int $cscId): ?int
+    {
+        $guard = 0;
+        $current = $cscId;
+
+        while ($guard++ < 20) {
+            $row = $this->cscRowsById[$current] ?? null;
+            if (! $row || ! $this->isAdminState($row['type'] ?? null)) {
+                return null;
             }
+
+            $parentId = (int) ($row['parent_id'] ?? 0);
+            if ($parentId < 1 || ! isset($this->cscRowsById[$parentId])) {
+                return $current;
+            }
+
+            $parent = $this->cscRowsById[$parentId];
+            if (! $this->isAdminState($parent['type'] ?? null)) {
+                return $current;
+            }
+
+            $current = $parentId;
         }
 
-        return true;
+        return $cscId;
     }
 
     private function importStates(string $path): void
     {
-        $this->info('Importing admin states from '.$path);
+        $this->info('Importing top-level admin states from '.$path);
         $rows = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
         $countries = Country::query()->pluck('id', 'iso_code');
+
+        $this->cscRowsById = [];
+        foreach ($rows as $row) {
+            $id = (int) ($row['id'] ?? 0);
+            if ($id > 0) {
+                $this->cscRowsById[$id] = $row;
+            }
+        }
 
         $bar = $this->output->createProgressBar(count($rows));
         $bar->start();
 
         $created = 0;
-        $skipped = 0;
+        $skippedType = 0;
+        $skippedChild = 0;
 
         foreach (array_chunk($rows, 200) as $chunk) {
-            DB::transaction(function () use ($chunk, $countries, &$created, &$skipped, $bar) {
+            DB::transaction(function () use ($chunk, $countries, &$created, &$skippedType, &$skippedChild, $bar) {
                 foreach ($chunk as $row) {
                     $iso = strtoupper((string) ($row['country_code'] ?? ''));
                     $countryId = $countries[$iso] ?? null;
@@ -215,7 +248,21 @@ class ImportWorldGeoCommand extends Command
                     }
 
                     if (! $this->isAdminState($row['type'] ?? null)) {
-                        $skipped++;
+                        $skippedType++;
+                        $bar->advance();
+                        continue;
+                    }
+
+                    $topId = $this->topAdminCscId($cscId);
+                    if ($topId === null) {
+                        $skippedType++;
+                        $bar->advance();
+                        continue;
+                    }
+
+                    // Child division → map onto parent state later; do not create State.
+                    if ($topId !== $cscId) {
+                        $skippedChild++;
                         $bar->advance();
                         continue;
                     }
@@ -229,6 +276,7 @@ class ImportWorldGeoCommand extends Command
                     );
 
                     $this->cscStateMap[$cscId] = (int) $state->id;
+                    $this->ourStateNames[(int) $state->id] = $state->name;
 
                     if ($state->wasRecentlyCreated) {
                         $created++;
@@ -239,17 +287,89 @@ class ImportWorldGeoCommand extends Command
             });
         }
 
+        // Map every child admin CSC id to the imported top-level state.
+        foreach ($this->cscRowsById as $cscId => $row) {
+            if (isset($this->cscStateMap[$cscId])) {
+                continue;
+            }
+            if (! $this->isAdminState($row['type'] ?? null)) {
+                continue;
+            }
+            $topId = $this->topAdminCscId($cscId);
+            if ($topId && isset($this->cscStateMap[$topId])) {
+                $this->childCscToStateId[$cscId] = $this->cscStateMap[$topId];
+            }
+        }
+
         $bar->finish();
         $this->newLine();
-        $this->info("States newly_created={$created} city-level_skipped={$skipped} mapped=".count($this->cscStateMap));
+        $this->info(
+            "States newly_created={$created} type_skipped={$skippedType} child_skipped={$skippedChild} ".
+            'mapped='.count($this->cscStateMap).' child_mapped='.count($this->childCscToStateId)
+        );
+    }
+
+    /**
+     * Turn skipped child municipalities into cities under their parent state.
+     */
+    private function promoteChildDivisionsAsCities(): void
+    {
+        $created = 0;
+        $skippedSame = 0;
+
+        foreach ($this->childCscToStateId as $cscId => $stateId) {
+            $row = $this->cscRowsById[$cscId] ?? null;
+            if (! $row) {
+                continue;
+            }
+            $name = trim((string) ($row['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+
+            $stateName = $this->ourStateNames[$stateId] ?? State::query()->find($stateId)?->name;
+            if ($stateName && mb_strtolower($name) === mb_strtolower($stateName)) {
+                $skippedSame++;
+                continue;
+            }
+
+            $city = City::query()->firstOrCreate(
+                ['state_id' => $stateId, 'name' => $name],
+                ['status' => 'active']
+            );
+            if ($city->wasRecentlyCreated) {
+                $created++;
+            }
+        }
+
+        $this->info("Promoted child divisions as cities created={$created} same-name_skipped={$skippedSame}");
+    }
+
+    private function resolveOurStateId(int $cscStateId, string $iso, string $stateName, string $stateCode, array $byName, array $byCode): ?int
+    {
+        if (isset($this->cscStateMap[$cscStateId])) {
+            return $this->cscStateMap[$cscStateId];
+        }
+        if (isset($this->childCscToStateId[$cscStateId])) {
+            return $this->childCscToStateId[$cscStateId];
+        }
+        if ($stateName !== '') {
+            $id = $byName[$iso.'|'.mb_strtolower($stateName)] ?? null;
+            if ($id) {
+                return $id;
+            }
+        }
+        if ($stateCode !== '') {
+            return $byCode[$iso.'|'.$stateCode] ?? null;
+        }
+
+        return null;
     }
 
     private function importCities(string $path): void
     {
         $this->info('Importing cities from '.$path.' (by CSC state id)…');
 
-        // Fallback maps when a city's CSC state was a skipped city-level row:
-        // match county/state by country+name / country+code instead.
         $byName = [];
         $byCode = [];
         State::query()
@@ -258,6 +378,7 @@ class ImportWorldGeoCommand extends Command
             ->each(function ($row) use (&$byName, &$byCode) {
                 $iso = strtoupper($row->iso_code);
                 $byName[$iso.'|'.mb_strtolower($row->name)] = (int) $row->id;
+                $this->ourStateNames[(int) $row->id] = $row->name;
                 if ($row->code) {
                     $byCode[$iso.'|'.strtoupper($row->code)] = (int) $row->id;
                 }
@@ -270,7 +391,6 @@ class ImportWorldGeoCommand extends Command
             return;
         }
 
-        $buffer = '';
         $depth = 0;
         $inString = false;
         $escape = false;
@@ -278,6 +398,7 @@ class ImportWorldGeoCommand extends Command
         $created = 0;
         $seen = 0;
         $unmapped = 0;
+        $skippedSame = 0;
         $batch = [];
 
         $flush = function () use (&$batch, &$created) {
@@ -354,21 +475,23 @@ class ImportWorldGeoCommand extends Command
                         }
 
                         $cscStateId = (int) ($row['state_id'] ?? 0);
-                        $stateId = $this->cscStateMap[$cscStateId] ?? null;
-
-                        if (! $stateId) {
-                            $stateName = trim((string) ($row['state_name'] ?? ''));
-                            $stateCode = strtoupper((string) ($row['state_code'] ?? ''));
-                            if ($stateName !== '') {
-                                $stateId = $byName[$iso.'|'.mb_strtolower($stateName)] ?? null;
-                            }
-                            if (! $stateId && $stateCode !== '') {
-                                $stateId = $byCode[$iso.'|'.$stateCode] ?? null;
-                            }
-                        }
+                        $stateId = $this->resolveOurStateId(
+                            $cscStateId,
+                            $iso,
+                            trim((string) ($row['state_name'] ?? '')),
+                            strtoupper((string) ($row['state_code'] ?? '')),
+                            $byName,
+                            $byCode
+                        );
 
                         if (! $stateId) {
                             $unmapped++;
+                            continue;
+                        }
+
+                        $stateName = $this->ourStateNames[$stateId] ?? '';
+                        if ($stateName !== '' && mb_strtolower($name) === mb_strtolower($stateName)) {
+                            $skippedSame++;
                             continue;
                         }
 
@@ -376,7 +499,7 @@ class ImportWorldGeoCommand extends Command
                         if (count($batch) >= 300) {
                             $flush();
                             if ($seen % 20000 === 0) {
-                                $this->line("… cities scanned={$seen} created={$created} unmapped={$unmapped}");
+                                $this->line("… cities scanned={$seen} created={$created} same_skipped={$skippedSame} unmapped={$unmapped}");
                             }
                         }
                     }
@@ -391,6 +514,85 @@ class ImportWorldGeoCommand extends Command
 
         $flush();
         fclose($handle);
-        $this->info("Cities scanned={$seen} newly_created={$created} unmapped={$unmapped}");
+        $this->info("Cities scanned={$seen} newly_created={$created} same-name_skipped={$skippedSame} unmapped={$unmapped}");
+    }
+
+    /**
+     * Fold states that still have no cities into a per-country "Regions" bucket
+     * so places remain selectable without State === City.
+     */
+    private function rescueEmptyStates(): void
+    {
+        $empties = State::query()
+            ->whereDoesntHave('cities')
+            ->orderBy('country_id')
+            ->orderBy('name')
+            ->get(['id', 'country_id', 'name']);
+
+        if ($empties->isEmpty()) {
+            return;
+        }
+
+        $moved = 0;
+        foreach ($empties->groupBy('country_id') as $countryId => $states) {
+            $bucket = State::query()->firstOrCreate(
+                ['country_id' => (int) $countryId, 'name' => 'Regions'],
+                ['status' => 'active']
+            );
+            $this->ourStateNames[(int) $bucket->id] = $bucket->name;
+
+            foreach ($states as $st) {
+                if ((int) $st->id === (int) $bucket->id) {
+                    continue;
+                }
+                if (mb_strtolower($st->name) === mb_strtolower($bucket->name)) {
+                    $st->delete();
+                    continue;
+                }
+                City::query()->firstOrCreate(
+                    ['state_id' => $bucket->id, 'name' => $st->name],
+                    ['status' => 'active']
+                );
+                $st->delete();
+                $moved++;
+            }
+        }
+
+        $this->info("Rescued empty states into Regions cities={$moved}");
+    }
+
+    private function pruneEmptyStates(): void
+    {
+        $ids = State::query()
+            ->whereDoesntHave('cities')
+            ->pluck('id');
+
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        $count = $ids->count();
+        State::query()->whereIn('id', $ids)->delete();
+        $this->info("Pruned empty states={$count}");
+    }
+
+    /**
+     * Safety net: remove any remaining city that duplicates its state name.
+     */
+    private function dropSameNameCities(): void
+    {
+        $deleted = DB::affectingStatement(
+            'DELETE FROM cities WHERE EXISTS (
+                SELECT 1 FROM states
+                WHERE states.id = cities.state_id
+                  AND lower(states.name) = lower(cities.name)
+            )'
+        );
+        // SQLite returns affected rows; some drivers may not — still ok.
+        $this->info('Dropped same-name cities≈'.$deleted);
+
+        // Re-rescue if we emptied any state by deleting the only same-name city.
+        $this->rescueEmptyStates();
+        $this->pruneEmptyStates();
     }
 }
