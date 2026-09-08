@@ -8,29 +8,40 @@ use App\Models\State;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Imports worldwide states and cities so Country → State → City dropdowns
  * have real options for every ISO country we already store.
  *
- * Source: dr5hn/countries-states-cities-database (ODbL — attribution retained
- * in the data folder README note). Idempotent via firstOrCreate on natural keys.
+ * Source: dr5hn/countries-states-cities-database (ODbL).
+ *
+ * City-level CSC "states" (e.g. Hungary "city with county rights" like
+ * Kaposvár) are skipped so they appear only as cities under their county.
  */
 class ImportWorldGeoCommand extends Command
 {
     protected $signature = 'geo:import-world
                             {--states-only : Skip cities (faster)}
+                            {--rebuild : Wipe existing states/cities first (nulls buyer/supplier FKs)}
                             {--force-download : Re-download source JSON files}';
 
     protected $description = 'Seed worldwide state/city dropdowns from the CSC open dataset';
 
     private string $dataDir;
 
+    /** @var array<int, int> CSC state id => our states.id */
+    private array $cscStateMap = [];
+
     public function handle(): int
     {
         $this->dataDir = storage_path('app/geo');
         if (! is_dir($this->dataDir)) {
             mkdir($this->dataDir, 0755, true);
+        }
+
+        if ($this->option('rebuild')) {
+            $this->rebuildTables();
         }
 
         $statesPath = $this->ensureStatesJson();
@@ -44,6 +55,30 @@ class ImportWorldGeoCommand extends Command
         $this->info('Done. states='.State::count().' cities='.City::count());
 
         return self::SUCCESS;
+    }
+
+    private function rebuildTables(): void
+    {
+        $this->warn('Rebuilding geo tables — clearing state/city FKs on masters…');
+
+        DB::transaction(function () {
+            foreach (['buyers', 'suppliers'] as $table) {
+                if (Schema::hasTable($table)) {
+                    if (Schema::hasColumn($table, 'city_id')) {
+                        DB::table($table)->update(['city_id' => null]);
+                    }
+                    if (Schema::hasColumn($table, 'state_id')) {
+                        DB::table($table)->update(['state_id' => null]);
+                    }
+                }
+            }
+
+            City::query()->delete();
+            State::query()->delete();
+        });
+
+        $this->cscStateMap = [];
+        $this->info('Cleared states/cities.');
     }
 
     private function ensureStatesJson(): string
@@ -95,9 +130,47 @@ class ImportWorldGeoCommand extends Command
         return $cached;
     }
 
+    /**
+     * Skip place-level CSC rows that belong in the City dropdown, not State.
+     */
+    private function isAdminState(?string $type): bool
+    {
+        $type = strtolower(trim((string) $type));
+        if ($type === '') {
+            return true;
+        }
+
+        $excluded = [
+            'city with county rights',
+            'city municipality',
+            'special self-governing city',
+            'special city',
+            'state city',
+            'metropolitan city',
+            'autonomous city',
+            'city',
+            'town',
+            'town council',
+            'village',
+            'commune',
+            'quarter',
+            'borough',
+            'ward',
+            'urban community',
+        ];
+
+        foreach ($excluded as $bad) {
+            if ($type === $bad) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private function importStates(string $path): void
     {
-        $this->info('Importing states from '.$path);
+        $this->info('Importing admin states from '.$path);
         $rows = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
         $countries = Country::query()->pluck('id', 'iso_code');
 
@@ -105,13 +178,23 @@ class ImportWorldGeoCommand extends Command
         $bar->start();
 
         $created = 0;
+        $skipped = 0;
+
         foreach (array_chunk($rows, 200) as $chunk) {
-            DB::transaction(function () use ($chunk, $countries, &$created, $bar) {
+            DB::transaction(function () use ($chunk, $countries, &$created, &$skipped, $bar) {
                 foreach ($chunk as $row) {
                     $iso = strtoupper((string) ($row['country_code'] ?? ''));
                     $countryId = $countries[$iso] ?? null;
                     $name = trim((string) ($row['name'] ?? ''));
-                    if (! $countryId || $name === '') {
+                    $cscId = (int) ($row['id'] ?? 0);
+
+                    if (! $countryId || $name === '' || $cscId < 1) {
+                        $bar->advance();
+                        continue;
+                    }
+
+                    if (! $this->isAdminState($row['type'] ?? null)) {
+                        $skipped++;
                         $bar->advance();
                         continue;
                     }
@@ -123,9 +206,13 @@ class ImportWorldGeoCommand extends Command
                             'status' => 'active',
                         ]
                     );
+
+                    $this->cscStateMap[$cscId] = (int) $state->id;
+
                     if ($state->wasRecentlyCreated) {
                         $created++;
                     }
+
                     $bar->advance();
                 }
             });
@@ -133,14 +220,15 @@ class ImportWorldGeoCommand extends Command
 
         $bar->finish();
         $this->newLine();
-        $this->info("States created/seen. newly_created={$created}");
+        $this->info("States newly_created={$created} city-level_skipped={$skipped} mapped=".count($this->cscStateMap));
     }
 
     private function importCities(string $path): void
     {
-        $this->info('Importing cities from '.$path.' (streaming)…');
+        $this->info('Importing cities from '.$path.' (by CSC state id)…');
 
-        // Map (country_iso|state_name) and (country_iso|state_code) → our state id
+        // Fallback maps when a city's CSC state was a skipped city-level row:
+        // match county/state by country+name / country+code instead.
         $byName = [];
         $byCode = [];
         State::query()
@@ -161,9 +249,6 @@ class ImportWorldGeoCommand extends Command
             return;
         }
 
-        // cities.json is a top-level array — read with a simple buffer parser
-        // for memory. For reliability on shared hosts we decode in chunks via
-        // regex-free streaming of objects.
         $buffer = '';
         $depth = 0;
         $inString = false;
@@ -171,6 +256,7 @@ class ImportWorldGeoCommand extends Command
         $object = '';
         $created = 0;
         $seen = 0;
+        $unmapped = 0;
         $batch = [];
 
         $flush = function () use (&$batch, &$created) {
@@ -245,23 +331,31 @@ class ImportWorldGeoCommand extends Command
                         if ($iso === '' || $name === '') {
                             continue;
                         }
-                        $stateId = null;
-                        $stateName = trim((string) ($row['state_name'] ?? ''));
-                        $stateCode = strtoupper((string) ($row['state_code'] ?? ''));
-                        if ($stateName !== '') {
-                            $stateId = $byName[$iso.'|'.mb_strtolower($stateName)] ?? null;
-                        }
-                        if (! $stateId && $stateCode !== '') {
-                            $stateId = $byCode[$iso.'|'.$stateCode] ?? null;
-                        }
+
+                        $cscStateId = (int) ($row['state_id'] ?? 0);
+                        $stateId = $this->cscStateMap[$cscStateId] ?? null;
+
                         if (! $stateId) {
+                            $stateName = trim((string) ($row['state_name'] ?? ''));
+                            $stateCode = strtoupper((string) ($row['state_code'] ?? ''));
+                            if ($stateName !== '') {
+                                $stateId = $byName[$iso.'|'.mb_strtolower($stateName)] ?? null;
+                            }
+                            if (! $stateId && $stateCode !== '') {
+                                $stateId = $byCode[$iso.'|'.$stateCode] ?? null;
+                            }
+                        }
+
+                        if (! $stateId) {
+                            $unmapped++;
                             continue;
                         }
+
                         $batch[] = [$stateId, $name];
                         if (count($batch) >= 300) {
                             $flush();
-                            if ($seen % 5000 === 0) {
-                                $this->line("… cities scanned={$seen} created={$created}");
+                            if ($seen % 20000 === 0) {
+                                $this->line("… cities scanned={$seen} created={$created} unmapped={$unmapped}");
                             }
                         }
                     }
@@ -276,36 +370,6 @@ class ImportWorldGeoCommand extends Command
 
         $flush();
         fclose($handle);
-        $this->info("Cities scanned={$seen} newly_created={$created}");
-        $this->backfillLeafCities();
-    }
-
-    /**
-     * Settlements that appear as "states" with no child cities still need a
-     * City dropdown option — mirror the state name as its own city.
-     */
-    private function backfillLeafCities(): void
-    {
-        $this->info('Backfilling cities for states that have none…');
-        $ids = State::query()
-            ->whereDoesntHave('cities')
-            ->get(['id', 'name']);
-
-        $created = 0;
-        foreach ($ids->chunk(200) as $chunk) {
-            DB::transaction(function () use ($chunk, &$created) {
-                foreach ($chunk as $state) {
-                    $city = City::query()->firstOrCreate(
-                        ['state_id' => $state->id, 'name' => $state->name],
-                        ['status' => 'active']
-                    );
-                    if ($city->wasRecentlyCreated) {
-                        $created++;
-                    }
-                }
-            });
-        }
-
-        $this->info("Leaf cities created={$created}");
+        $this->info("Cities scanned={$seen} newly_created={$created} unmapped={$unmapped}");
     }
 }

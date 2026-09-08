@@ -63,19 +63,6 @@ class GeoController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        // Some CSC "states" are settlements with no child cities. Offer the
-        // place name itself so the City dropdown is never an empty dead-end.
-        if ($cities->isEmpty()) {
-            $state = State::query()->find($stateId);
-            if ($state) {
-                $city = City::query()->firstOrCreate(
-                    ['state_id' => $state->id, 'name' => $state->name],
-                    ['status' => 'active']
-                );
-                $cities = collect([['id' => $city->id, 'name' => $city->name]]);
-            }
-        }
-
         return response()->json($cities);
     }
 
