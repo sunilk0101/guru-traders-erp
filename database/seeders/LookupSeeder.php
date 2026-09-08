@@ -8,7 +8,6 @@ use App\Models\Currency;
 use App\Models\GstRate;
 use App\Models\Incoterm;
 use App\Models\PaymentTerm;
-use App\Models\Port;
 use App\Models\PriceBand;
 use App\Models\ShipmentMethod;
 use Illuminate\Database\Seeder;
@@ -94,32 +93,8 @@ class LookupSeeder extends Seeder
             Currency::firstOrCreate(['iso_code' => $iso], ['name' => $name, 'symbol' => $symbol]);
         }
 
-        // Col N. Indian load ports and the discharge ports on the example rows.
-        $ports = [
-            ['IN', 'INMAA', 'Chennai Port',      'sea'],
-            ['IN', 'INNSA', 'Nhava Sheva',       'sea'],
-            ['IN', 'INTUT', 'Tuticorin Port',    'sea'],
-            ['IN', 'INCOK', 'Cochin Port',       'sea'],
-            ['IN', 'INMAA4', 'Chennai Air Cargo', 'air'],
-            ['GB', 'GBLON', 'London Port',       'sea'],
-            ['GB', 'GBFXT', 'Felixstowe',        'sea'],
-            ['US', 'USNYC', 'New York Port',     'sea'],
-            ['US', 'USLAX', 'Los Angeles Port',  'sea'],
-            ['AE', 'AEJEA', 'Jebel Ali',         'sea'],
-            ['DE', 'DEHAM', 'Hamburg',           'sea'],
-            ['NL', 'NLRTM', 'Rotterdam',         'sea'],
-        ];
-
-        foreach ($ports as [$iso, $code, $name, $type]) {
-            Port::firstOrCreate(
-                ['code' => $code],
-                [
-                    'name'       => $name,
-                    'type'       => $type,
-                    'country_id' => Country::where('iso_code', $iso)->value('id'),
-                ]
-            );
-        }
+        // Col N — destination / load ports (AU, NZ, Pacific + worldwide).
+        $this->call(PortSeeder::class);
 
         // Col R. The incoterms an apparel exporter actually quotes on.
         $incoterms = [
