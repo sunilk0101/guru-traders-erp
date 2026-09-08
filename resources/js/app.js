@@ -50,9 +50,22 @@ window.upgradeSearchableSelect = function (el) {
     // "Drop down, add more in the future" (Buyer sheet col Q, Payment
     // Terms): typing a name not already in the list posts it to
     // data-create-url and adds the row it comes back with.
+    // Cascading geo fields also send the parent id (country_id / state_id)
+    // from data-cascade-parent + data-cascade-key so a typed Estonia state
+    // lands under the right country.
     if (el.dataset.createUrl) {
         settings.create = function (input, callback) {
             const token = document.querySelector('meta[name="csrf-token"]')?.content;
+            const body = { name: input };
+
+            if (el.dataset.cascadeParent && el.dataset.cascadeKey) {
+                const parent = document.querySelector(el.dataset.cascadeParent);
+                if (! parent?.value) {
+                    callback();
+                    return;
+                }
+                body[el.dataset.cascadeKey] = parent.value;
+            }
 
             fetch(el.dataset.createUrl, {
                 method: 'POST',
@@ -61,7 +74,7 @@ window.upgradeSearchableSelect = function (el) {
                     Accept: 'application/json',
                     'X-CSRF-TOKEN': token || '',
                 },
-                body: JSON.stringify({ name: input }),
+                body: JSON.stringify(body),
             })
                 .then((r) => (r.ok ? r.json() : Promise.reject()))
                 .then((row) => callback({ value: String(row.id), text: row.name }))
@@ -132,7 +145,13 @@ function initCascadingSelects() {
         // is empty.
         applyEnabledState(child, parent.value);
 
-        parent.addEventListener('change', () => reload(child, parent.value));
+        const onParentChange = () => reload(child, parent.value);
+        parent.addEventListener('change', onParentChange);
+        // TomSelect does not always bubble a native change the UI expects;
+        // bind the instance event too when the parent is already upgraded.
+        if (parent.tomselect) {
+            parent.tomselect.on('change', onParentChange);
+        }
     });
 
     function control(select) {
@@ -181,16 +200,20 @@ function initCascadingSelects() {
         fetch(url, { headers: { Accept: 'application/json' } })
             .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
             .then((rows) => {
+                const emptyHint = select.dataset.createUrl
+                    ? 'Type to add…'
+                    : 'No options for this selection';
+
                 if (ts) {
                     ts.addOptions(rows.map((row) => ({ value: String(row.id), text: row.name })));
                     ts.refreshOptions(false);
-                    if (!rows.length) {
-                        ts.settings.placeholder = 'No options for this selection';
-                        ts.control_input.placeholder = 'No options for this selection';
+                    if (! rows.length) {
+                        ts.settings.placeholder = emptyHint;
+                        ts.control_input.placeholder = emptyHint;
                     }
                 } else {
                     select.append(new Option(
-                        rows.length ? (select.dataset.placeholder || '— Select —') : 'No options for this selection',
+                        rows.length ? (select.dataset.placeholder || '— Select —') : emptyHint,
                         ''
                     ));
                     rows.forEach((row) => select.append(new Option(row.name, row.id)));

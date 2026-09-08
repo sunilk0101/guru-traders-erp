@@ -72,6 +72,8 @@ Route::middleware('auth')->group(function () {
          */
         Route::get('geo/states', [GeoController::class, 'states'])->name('geo.states');
         Route::get('geo/cities', [GeoController::class, 'cities'])->name('geo.cities');
+        Route::post('geo/states', [GeoController::class, 'storeState'])->name('geo.states.store');
+        Route::post('geo/cities', [GeoController::class, 'storeCity'])->name('geo.cities.store');
 
         Route::patch('categories/{category}/toggle-status', [CategoryController::class, 'toggleStatus'])
             ->name('categories.toggle-status');
