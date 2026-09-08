@@ -15,10 +15,8 @@ class PortSeeder extends Seeder
 {
     public function run(): void
     {
-        $countryIds = Country::query()->pluck('id', 'iso_code');
-
         foreach ($this->ports() as [$iso, $code, $name, $type]) {
-            $countryId = $countryIds[$iso] ?? null;
+            $countryId = $this->ensureCountry($iso);
             if (! $countryId) {
                 continue;
             }
@@ -33,6 +31,44 @@ class PortSeeder extends Seeder
                 ]
             );
         }
+    }
+
+    /**
+     * Territories like New Caledonia / French Polynesia may be absent from the
+     * ISO buyer list — still create them so Pacific ports can attach.
+     */
+    private function ensureCountry(string $iso): ?int
+    {
+        $iso = strtoupper($iso);
+        $existing = Country::query()->where('iso_code', $iso)->value('id');
+        if ($existing) {
+            return (int) $existing;
+        }
+
+        $names = [
+            'AS' => ['American Samoa', '+1'],
+            'CK' => ['Cook Islands', '+682'],
+            'GU' => ['Guam', '+1'],
+            'MP' => ['Northern Mariana Islands', '+1'],
+            'NC' => ['New Caledonia', '+687'],
+            'NU' => ['Niue', '+683'],
+            'PF' => ['French Polynesia', '+689'],
+            'PN' => ['Pitcairn Islands', '+64'],
+            'RE' => ['Réunion', '+262'],
+            'TK' => ['Tokelau', '+690'],
+            'WF' => ['Wallis and Futuna', '+681'],
+        ];
+
+        if (! isset($names[$iso])) {
+            return null;
+        }
+
+        [$name, $dial] = $names[$iso];
+
+        return (int) Country::query()->firstOrCreate(
+            ['iso_code' => $iso],
+            ['name' => $name, 'dial_code' => $dial, 'status' => 'active']
+        )->id;
     }
 
     /**
