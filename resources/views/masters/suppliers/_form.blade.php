@@ -402,7 +402,9 @@
                      data-cascade-parent="#country_id"
                      :data-cascade-url="route('masters.geo.states')"
                      data-cascade-key="country_id"
-                     data-cascade-empty="Select a country first" />
+                     data-cascade-empty="Select a country first"
+                     :data-create-url="route('masters.geo.states.store')"
+                     hint="Missing a state? Type the name and press Enter to add it." />
 
         {{-- Col N --}}
         <x-ui.select name="city_id" label="City" :options="$cities"
@@ -411,7 +413,9 @@
                      data-cascade-parent="#state_id"
                      :data-cascade-url="route('masters.geo.cities')"
                      data-cascade-key="state_id"
-                     data-cascade-empty="Select a state first" />
+                     data-cascade-empty="Select a state first"
+                     :data-create-url="route('masters.geo.cities.store')"
+                     hint="Missing a city? Type the name and press Enter to add it." />
 
         {{-- Col Q --}}
         <x-ui.field name="pincode" label="PIN Code" :value="$supplier?->pincode"
