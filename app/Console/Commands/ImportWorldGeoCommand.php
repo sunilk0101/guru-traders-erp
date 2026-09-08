@@ -52,9 +52,30 @@ class ImportWorldGeoCommand extends Command
             $this->importCities($citiesPath);
         }
 
+        $this->pruneEmptyStates();
+
         $this->info('Done. states='.State::count().' cities='.City::count());
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Drop admin rows that ended up with no cities (mis-typed CSC places
+     * like Hungary's Zalaegerszeg labeled "county", or empty shells).
+     */
+    private function pruneEmptyStates(): void
+    {
+        $ids = State::query()
+            ->whereDoesntHave('cities')
+            ->pluck('id');
+
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        $count = $ids->count();
+        State::query()->whereIn('id', $ids)->delete();
+        $this->info("Pruned empty states={$count}");
     }
 
     private function rebuildTables(): void
