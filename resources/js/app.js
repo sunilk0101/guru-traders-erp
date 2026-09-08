@@ -134,102 +134,134 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 function initCascadingSelects() {
     const children = document.querySelectorAll('select[data-cascade-parent]');
-    if (!children.length) return;
+    if (! children.length) return;
+
+    const inflight = new WeakMap();
 
     children.forEach((child) => {
         const parent = document.querySelector(child.dataset.cascadeParent);
-        if (!parent) return;
+        if (! parent) return;
 
-        // A child whose parent is empty starts disabled — an open dropdown
-        // listing every city in the world is worse than one that says why it
-        // is empty.
-        applyEnabledState(child, parent.value);
+        applyEnabledState(child, parentValue(parent));
 
-        const onParentChange = () => reload(child, parent.value);
-        parent.addEventListener('change', onParentChange);
-        // TomSelect does not always bubble a native change the UI expects;
-        // bind the instance event too when the parent is already upgraded.
+        // Bind ONE change source. TomSelect fires both its own "change" and a
+        // native change; listening to both cleared the city list mid-fetch.
         if (parent.tomselect) {
-            parent.tomselect.on('change', onParentChange);
+            parent.tomselect.on('change', (value) => reload(child, value || ''));
+        } else {
+            parent.addEventListener('change', () => reload(child, parentValue(parent)));
         }
     });
 
+    function parentValue(select) {
+        return select.tomselect ? String(select.tomselect.getValue() || '') : String(select.value || '');
+    }
+
     function control(select) {
-        // TomSelect hangs its instance off the element it replaced.
         return select.tomselect || null;
     }
 
-    function applyEnabledState(select, parentValue) {
+    function applyEnabledState(select, value) {
         const ts = control(select);
-        const enabled = Boolean(parentValue);
+        const enabled = Boolean(value);
         const placeholder = enabled
             ? (select.dataset.placeholder || 'Search…')
             : (select.dataset.cascadeEmpty || 'Select the field above first');
 
-        select.disabled = !enabled;
+        select.disabled = ! enabled;
 
         if (ts) {
             enabled ? ts.enable() : ts.disable();
             ts.settings.placeholder = placeholder;
-            ts.control_input.placeholder = placeholder;
+            if (ts.control_input) {
+                ts.control_input.placeholder = placeholder;
+            }
         }
     }
 
-    /**
-     * Repopulate one select from its endpoint, then cascade the reset downward.
-     *
-     * The child is cleared before the request rather than after it: leaving a
-     * stale city visible while its new list loads is how a buyer ends up saved
-     * in a city that is not in the country on screen.
-     */
-    function reload(select, parentValue) {
+    function reload(select, value) {
         const ts = control(select);
+        const parentVal = String(value || '');
 
-        if (ts) { ts.clear(true); ts.clearOptions(); } else { select.innerHTML = ''; }
+        // Cancel any previous fetch for this select so a slow response cannot
+        // overwrite a newer country/state choice.
+        const previous = inflight.get(select);
+        if (previous) {
+            previous.abort();
+        }
 
-        applyEnabledState(select, parentValue);
+        if (ts) {
+            ts.clear(true);
+            ts.clearOptions();
+        } else {
+            select.innerHTML = '';
+        }
+
+        applyEnabledState(select, parentVal);
         resetDescendants(select);
 
-        if (!parentValue) return;
+        if (! parentVal) {
+            return;
+        }
 
-        const url = new URL(select.dataset.cascadeUrl, window.location.origin);
-        url.searchParams.set(select.dataset.cascadeKey, parentValue);
+        const url = new URL(select.dataset.cascadeUrl, window.location.href);
+        url.searchParams.set(select.dataset.cascadeKey, parentVal);
 
-        if (ts) ts.load(() => { });
+        const controller = new AbortController();
+        inflight.set(select, controller);
 
-        fetch(url, { headers: { Accept: 'application/json' } })
+        fetch(url.toString(), {
+            headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+            signal: controller.signal,
+        })
             .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
             .then((rows) => {
-                const emptyHint = select.dataset.createUrl
-                    ? 'Type to add…'
+                if (! Array.isArray(rows)) {
+                    rows = [];
+                }
+
+                const placeholder = rows.length
+                    ? (select.dataset.placeholder || 'Search…')
                     : 'No options for this selection';
 
                 if (ts) {
-                    ts.addOptions(rows.map((row) => ({ value: String(row.id), text: row.name })));
-                    ts.refreshOptions(false);
-                    if (! rows.length) {
-                        ts.settings.placeholder = emptyHint;
-                        ts.control_input.placeholder = emptyHint;
+                    if (ts.settings.allowEmptyOption) {
+                        ts.addOption({ value: '', text: placeholder });
                     }
+                    ts.addOptions(rows.map((row) => ({ value: String(row.id), text: row.name })));
+                    ts.settings.placeholder = placeholder;
+                    if (ts.control_input) {
+                        ts.control_input.placeholder = placeholder;
+                    }
+                    ts.refreshOptions(false);
                 } else {
-                    select.append(new Option(
-                        rows.length ? (select.dataset.placeholder || '— Select —') : emptyHint,
-                        ''
-                    ));
+                    select.append(new Option(placeholder, ''));
                     rows.forEach((row) => select.append(new Option(row.name, row.id)));
                 }
             })
-            // A failed lookup must not leave the field looking loaded-but-empty,
-            // which reads as "this country has no states".
-            .catch(() => applyEnabledState(select, ''));
+            .catch((err) => {
+                if (err?.name === 'AbortError') {
+                    return;
+                }
+                applyEnabledState(select, '');
+            })
+            .finally(() => {
+                if (inflight.get(select) === controller) {
+                    inflight.delete(select);
+                }
+            });
     }
 
-    /** Clearing a select invalidates everything hanging off it. */
     function resetDescendants(select) {
-        if (!select.dataset.cascadeChild) return;
+        if (! select.dataset.cascadeChild) {
+            return;
+        }
 
         const child = document.querySelector(select.dataset.cascadeChild);
-        if (child) reload(child, '');
+        if (child) {
+            reload(child, '');
+        }
     }
 }
 

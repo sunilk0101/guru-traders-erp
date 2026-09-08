@@ -277,5 +277,35 @@ class ImportWorldGeoCommand extends Command
         $flush();
         fclose($handle);
         $this->info("Cities scanned={$seen} newly_created={$created}");
+        $this->backfillLeafCities();
+    }
+
+    /**
+     * Settlements that appear as "states" with no child cities still need a
+     * City dropdown option — mirror the state name as its own city.
+     */
+    private function backfillLeafCities(): void
+    {
+        $this->info('Backfilling cities for states that have none…');
+        $ids = State::query()
+            ->whereDoesntHave('cities')
+            ->get(['id', 'name']);
+
+        $created = 0;
+        foreach ($ids->chunk(200) as $chunk) {
+            DB::transaction(function () use ($chunk, &$created) {
+                foreach ($chunk as $state) {
+                    $city = City::query()->firstOrCreate(
+                        ['state_id' => $state->id, 'name' => $state->name],
+                        ['status' => 'active']
+                    );
+                    if ($city->wasRecentlyCreated) {
+                        $created++;
+                    }
+                }
+            });
+        }
+
+        $this->info("Leaf cities created={$created}");
     }
 }
