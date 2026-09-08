@@ -27,6 +27,29 @@ abstract class InquiryRequest extends FormRequest
         return $this->user()->can($this->permission());
     }
 
+    protected function prepareForValidation(): void
+    {
+        // Header category/format remain the inquiry summary — if the user only
+        // filled them on item lines, lift the first line up so list/show/OC
+        // still have a header value and existing required_unless:draft rules pass.
+        $items = array_values(array_filter((array) $this->input('items', [])));
+        $first = $items[0] ?? null;
+        if (! is_array($first)) {
+            return;
+        }
+
+        $merge = [];
+        if (blank($this->input('category_id')) && filled($first['category_id'] ?? null)) {
+            $merge['category_id'] = $first['category_id'];
+        }
+        if (blank($this->input('document_format_id')) && filled($first['document_format_id'] ?? null)) {
+            $merge['document_format_id'] = $first['document_format_id'];
+        }
+        if ($merge !== []) {
+            $this->merge($merge);
+        }
+    }
+
     public function rules(): array
     {
         $requiredUnlessDraft = 'required_unless:mode,draft';
@@ -58,6 +81,8 @@ abstract class InquiryRequest extends FormRequest
             'status' => ['required', Rule::in(array_keys(Inquiry::STATUSES))],
 
             'items'                        => ['nullable', 'array', 'max:200'],
+            'items.*.category_id'          => [$requiredUnlessDraft, 'nullable', 'integer', Rule::exists('categories', 'id')],
+            'items.*.document_format_id'   => [$requiredUnlessDraft, 'nullable', 'integer', Rule::exists('document_formats', 'id')],
             'items.*.design_no'            => ['nullable', 'string', 'max:150'],
             'items.*.description'          => ['nullable', 'string', 'max:2000'],
             'items.*.product_id'           => ['nullable', 'integer', Rule::exists('products', 'id')],
@@ -123,24 +148,22 @@ abstract class InquiryRequest extends FormRequest
      */
     private function validateItemUnits(Validator $validator): void
     {
-        $formatId = $this->input('document_format_id');
-        if (blank($formatId)) {
+        $items = (array) $this->input('items', []);
+        if ($items === []) {
             return;
         }
 
-        $formatUnits = DocumentFormat::query()
-            ->whereKey($formatId)
-            ->first()
-            ?->units()
-            ->pluck('name')
-            ->all() ?? [];
+        $formatIds = collect($items)->pluck('document_format_id')->filter()->unique()->values();
+        $headerFormatId = $this->input('document_format_id');
+        if (filled($headerFormatId)) {
+            $formatIds = $formatIds->push($headerFormatId)->unique()->values();
+        }
 
-        $productIds = collect($this->input('items', []))
-            ->pluck('product_id')
-            ->filter()
-            ->unique()
-            ->values();
+        $formats = $formatIds->isEmpty()
+            ? collect()
+            : DocumentFormat::query()->whereIn('id', $formatIds)->with('units')->get()->keyBy('id');
 
+        $productIds = collect($items)->pluck('product_id')->filter()->unique()->values();
         $products = $productIds->isEmpty()
             ? collect()
             : Product::query()->whereIn('id', $productIds)->get(['id', 'unit_po', 'unit_export'])->keyBy('id');
@@ -156,11 +179,16 @@ abstract class InquiryRequest extends FormRequest
                 ->all();
         }
 
-        foreach ((array) $this->input('items', []) as $index => $item) {
+        foreach ($items as $index => $item) {
             $unit = $item['unit'] ?? null;
             if (blank($unit)) {
                 continue;
             }
+
+            $formatId = $item['document_format_id'] ?? $headerFormatId;
+            $formatUnits = filled($formatId)
+                ? ($formats->get($formatId)?->units->pluck('name')->all() ?? [])
+                : [];
 
             $allowed = $formatUnits;
             $product = isset($item['product_id']) ? $products->get($item['product_id']) : null;
@@ -191,13 +219,15 @@ abstract class InquiryRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'source_id'           => 'source',
-            'buyer_id'            => 'buyer',
-            'category_id'         => 'category',
-            'document_format_id'  => 'order format',
-            'currency_id'         => 'currency',
-            'delivery_details'    => 'delivery details',
-            'packing_details'     => 'packing details',
+            'source_id'                      => 'source',
+            'buyer_id'                       => 'buyer',
+            'category_id'                    => 'default category',
+            'document_format_id'             => 'default order format',
+            'items.*.category_id'            => 'item category',
+            'items.*.document_format_id'     => 'item order format',
+            'currency_id'                    => 'currency',
+            'delivery_details'               => 'delivery details',
+            'packing_details'                => 'packing details',
         ];
     }
 }

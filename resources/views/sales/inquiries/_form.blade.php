@@ -88,24 +88,27 @@
                      data-create-url="{{ route('sales.inquiries.sources.store') }}" />
     </div>
 
-    <div class="row">
-        <x-ui.select name="buyer_id" label="Buyer" required col="col-md-6"
+        <x-ui.select name="buyer_id" label="Buyer" required col="col-md-12"
                      :options="$buyers->pluck('label', 'id')" :selected="$val('buyer_id')" />
-
-        <x-ui.select name="category_id" label="Category" required col="col-md-6"
-                     :options="$categories" :selected="$val('category_id')" />
     </div>
 </x-ui.form-section>
 
 <x-ui.form-section title="Order Format & Terms" icon="bi-file-earmark-ruled"
-                   subtitle="Defines the item table structure across Inquiry → OC → PO.">
+                   subtitle="Defaults for new item lines — each line can use a different category / format.">
     <div class="row">
-        <x-ui.select name="document_format_id" label="Order Format" required col="col-md-6"
-                     :options="$formats->pluck('name', 'id')" :selected="$val('document_format_id')" />
+        <x-ui.select name="category_id" label="Default Category" col="col-md-6"
+                     :options="$categories" :selected="$val('category_id')"
+                     hint="Copied onto each new item line. Change per line below if needed." />
 
+        <x-ui.select name="document_format_id" label="Default Order Format" col="col-md-6"
+                     :options="$formats->pluck('name', 'id')" :selected="$val('document_format_id')"
+                     hint="Copied onto each new item line. Change per line below if needed." />
+    </div>
+
+    <div class="row">
         <div class="col-md-6 mb-3">
             <label class="form-label fw-semibold">Format Type</label>
-            <input type="text" class="form-control bg-body-tertiary" id="format_type" readonly placeholder="— From Format —">
+            <input type="text" class="form-control bg-body-tertiary" id="format_type" readonly placeholder="— From default format —">
         </div>
     </div>
 
@@ -136,7 +139,7 @@
 </x-ui.form-section>
 
 <x-ui.form-section title="Items, Costing & Follow-ups" icon="bi-table"
-                   subtitle="Each item shows Qty / Amount up top. Expand Costing for FOB, colour and size breakdown.">
+                   subtitle="Set Category and Order Format on each item — they can change every few lines.">
     <div id="items-wrap">
         @php $existingItems = old('items', $isEdit ? $inquiry->items : []); @endphp
 
@@ -285,7 +288,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function applyBuyerCategoryFilter(clearIfInvalid) {
         const buyer = buyers[buyerSelect.value];
-        filterOptionsByCategory(categorySelect, buyer ? buyer.categories : null, clearIfInvalid);
+        const allowed = buyer ? buyer.categories : null;
+        filterOptionsByCategory(categorySelect, allowed, clearIfInvalid);
+        itemsWrap.querySelectorAll('.js-item-category').forEach(function (sel) {
+            filterOptionsByCategory(sel, allowed, clearIfInvalid);
+        });
     }
 
     function applyCategoryFormatFilter(clearIfInvalid) {
@@ -300,16 +307,47 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function filterItemFormatOptions(itemEl, clearIfInvalid) {
+        const categorySel = itemEl.querySelector('.js-item-category');
+        const formatSel = itemEl.querySelector('.js-item-format');
+        const categoryId = categorySel && categorySel.value ? Number(categorySel.value) : null;
+        Array.from(formatSel.options).forEach(function (opt) {
+            if (opt.value === '') return;
+            const meta = formats[opt.value];
+            opt.hidden = categoryId && meta ? ! meta.categories.includes(categoryId) : false;
+        });
+        if (clearIfInvalid && formatSel.selectedOptions[0] && formatSel.selectedOptions[0].hidden) {
+            formatSel.value = '';
+        }
+    }
+
+    function itemFormatMeta(itemEl) {
+        const formatSel = itemEl.querySelector('.js-item-format');
+        const id = formatSel && formatSel.value ? formatSel.value : formatSelect.value;
+        return formats[id] || null;
+    }
+
     function applyFormatMeta() {
         const meta = formats[formatSelect.value];
         formatTypeEl.value = meta ? meta.module : '';
-        populateUnitSelects(meta ? meta.units : []);
-        itemsWrap.querySelectorAll('.js-add-colour').forEach(function (btn) {
-            btn.classList.toggle('d-none', ! (meta && meta.allow_multiple_colours));
+        // Header default format only drives delivery/packing/images — item
+        // columns/units come from each line's own Order Format.
+    }
+
+    function populateItemUnits(itemEl, units) {
+        const select = itemEl.querySelector('.js-unit-select');
+        if (! select) return;
+        const current = select.dataset.selected || select.value;
+        select.innerHTML = '<option value="">—</option>';
+        (units || []).forEach(function (unit) {
+            const opt = document.createElement('option');
+            opt.value = unit;
+            opt.textContent = unit;
+            if (unit === current) opt.selected = true;
+            select.appendChild(opt);
         });
-        itemsWrap.querySelectorAll(':scope > .inquiry-item').forEach(function (itemEl) {
-            applyColumnsToItem(itemEl, meta);
-        });
+        ensureUnitOption(select, current);
+        if (current) select.value = current;
     }
 
     /**
@@ -353,6 +391,11 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         applyCustomColumns(itemEl, (meta && meta.customColumns) || []);
+
+        const addColourBtn = itemEl.querySelector('.js-add-colour');
+        if (addColourBtn) {
+            addColourBtn.classList.toggle('d-none', ! (meta && meta.allow_multiple_colours));
+        }
     }
 
     /**
@@ -459,25 +502,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function populateUnitSelects(units) {
-        itemsWrap.querySelectorAll('.js-unit-select').forEach(function (select) {
-            const current = select.dataset.selected || select.value;
-            select.innerHTML = '<option value="">—</option>';
-            units.forEach(function (unit) {
-                const opt = document.createElement('option');
-                opt.value = unit;
-                opt.textContent = unit;
-                if (unit === current) opt.selected = true;
-                select.appendChild(opt);
-            });
-            // Keep a saved / product-defaulted unit that is not on this format's
-            // chip list so edit screens (and Product Master defaults) do not
-            // silently blank the field when the format changes.
-            ensureUnitOption(select, current);
-            if (current) select.value = current;
-        });
-    }
-
     function ensureUnitOption(select, unit) {
         if (! unit) return;
         const exists = Array.from(select.options).some(function (o) { return o.value === unit; });
@@ -505,7 +529,7 @@ document.addEventListener('DOMContentLoaded', function () {
         ensureUnitOption(unitSelect, preferred);
         unitSelect.value = preferred;
         unitSelect.dataset.selected = preferred;
-        applyColumnsToItem(itemEl, formats[formatSelect.value]);
+        applyColumnsToItem(itemEl, itemFormatMeta(itemEl));
     }
 
     function applyProductBom(itemEl) {
@@ -572,11 +596,16 @@ document.addEventListener('DOMContentLoaded', function () {
         return node;
     }
 
-    function refreshItemProductsAndSuppliers() {
-        const categoryId = categorySelect.value || '';
-        itemsWrap.querySelectorAll('.inquiry-item').forEach(function (itemEl) {
-            loadSelectOptions(itemEl.querySelector('.js-product-select'), productsUrl, categoryId);
-            loadSelectOptions(itemEl.querySelector('.js-supplier-select'), suppliersUrl, categoryId);
+    function refreshItemProductsAndSuppliers(itemEl) {
+        const targets = itemEl
+            ? [itemEl]
+            : Array.from(itemsWrap.querySelectorAll('.inquiry-item'));
+
+        targets.forEach(function (el) {
+            const categorySel = el.querySelector('.js-item-category');
+            const categoryId = (categorySel && categorySel.value) || categorySelect.value || '';
+            loadSelectOptions(el.querySelector('.js-product-select'), productsUrl, categoryId);
+            loadSelectOptions(el.querySelector('.js-supplier-select'), suppliersUrl, categoryId);
         });
     }
 
@@ -634,7 +663,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     categorySelect.addEventListener('change', function () {
         applyCategoryFormatFilter(true);
-        refreshItemProductsAndSuppliers();
+        // Default category change does not rewrite existing lines — only
+        // filters the header format list. New lines pick up the new default.
     });
 
     formatSelect.addEventListener('change', function () {
@@ -720,7 +750,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const node = colourTemplate.content.cloneNode(true);
         const coloursWrap = itemEl.querySelector('.colours-wrap');
         coloursWrap.appendChild(node);
-        applySizeGrid(coloursWrap.lastElementChild, formats[formatSelect.value]);
+        applySizeGrid(coloursWrap.lastElementChild, itemFormatMeta(itemEl));
         recalcItem(itemEl);
     }
 
@@ -730,7 +760,26 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function initItem(itemEl) {
-        const categoryId = categorySelect.value || '';
+        const categorySel = itemEl.querySelector('.js-item-category');
+        const formatSel = itemEl.querySelector('.js-item-format');
+
+        // Prefill from defaults when the line has none yet (new template row).
+        if (categorySel && ! categorySel.value && categorySelect.value) {
+            categorySel.value = categorySelect.value;
+        }
+        if (formatSel && ! formatSel.value && formatSelect.value) {
+            formatSel.value = formatSelect.value;
+        }
+        if (itemEl.dataset.categoryId && categorySel && ! categorySel.value) {
+            categorySel.value = itemEl.dataset.categoryId;
+        }
+        if (itemEl.dataset.formatId && formatSel && ! formatSel.value) {
+            formatSel.value = itemEl.dataset.formatId;
+        }
+
+        filterItemFormatOptions(itemEl, false);
+
+        const categoryId = (categorySel && categorySel.value) || categorySelect.value || '';
 
         loadSelectOptions(
             itemEl.querySelector('.js-product-select'), productsUrl, categoryId,
@@ -744,8 +793,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const unitSelect = itemEl.querySelector('.js-unit-select');
         unitSelect.dataset.selected = itemEl.dataset.unit || '';
 
-        const meta = formats[formatSelect.value];
-        populateUnitSelects(meta ? meta.units : []);
+        const meta = itemFormatMeta(itemEl);
+        populateItemUnits(itemEl, meta ? meta.units : []);
         applyColumnsToItem(itemEl, meta);
 
         if (itemEl.querySelectorAll('.inquiry-colour').length === 0) {
@@ -823,6 +872,22 @@ document.addEventListener('DOMContentLoaded', function () {
     // computes server-side for the format's own preview.
     // Product change defaults Unit from Product Master (export unit first).
     itemsWrap.addEventListener('change', function (e) {
+        if (e.target.classList.contains('js-item-category')) {
+            const itemEl = e.target.closest('.inquiry-item');
+            filterItemFormatOptions(itemEl, true);
+            refreshItemProductsAndSuppliers(itemEl);
+            const meta = itemFormatMeta(itemEl);
+            populateItemUnits(itemEl, meta ? meta.units : []);
+            applyColumnsToItem(itemEl, meta);
+            return;
+        }
+        if (e.target.classList.contains('js-item-format')) {
+            const itemEl = e.target.closest('.inquiry-item');
+            const meta = itemFormatMeta(itemEl);
+            populateItemUnits(itemEl, meta ? meta.units : []);
+            applyColumnsToItem(itemEl, meta);
+            return;
+        }
         if (e.target.classList.contains('js-product-select')) {
             const itemEl = e.target.closest('.inquiry-item');
             applyProductUnit(itemEl);
@@ -832,7 +897,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (e.target.classList.contains('js-unit-select')) {
             e.target.dataset.selected = e.target.value;
-            applyColumnsToItem(e.target.closest('.inquiry-item'), formats[formatSelect.value]);
+            applyColumnsToItem(e.target.closest('.inquiry-item'), itemFormatMeta(e.target.closest('.inquiry-item')));
         }
     });
 
@@ -880,6 +945,8 @@ document.addEventListener('DOMContentLoaded', function () {
         itemsWrap.querySelectorAll(':scope > .inquiry-item').forEach(function (itemEl, i) {
             const field = (name) => itemEl.querySelector('[data-field="' + name + '"]').value;
 
+            appendHidden('items[' + i + '][category_id]', field('category_id'));
+            appendHidden('items[' + i + '][document_format_id]', field('document_format_id'));
             appendHidden('items[' + i + '][design_no]', field('design_no'));
             appendHidden('items[' + i + '][description]', field('description'));
             appendHidden('items[' + i + '][product_id]', field('product_id'));

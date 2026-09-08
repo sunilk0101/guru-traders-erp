@@ -14,6 +14,8 @@
         $iCustom = [];
         $iAmount = '0.00';
         $iBom = [];
+        $iCategory = '';
+        $iFormat = '';
         $openCosting = false;
     } else {
         $isArr = is_array($item);
@@ -33,6 +35,8 @@
         $iCustom = $isArr ? ($item['custom'] ?? []) : ($item->custom_values ?? []);
         $iAmount = $isArr ? '0.00' : number_format((float) $item->amount, 2);
         $iBom = $isArr ? ($item['bom'] ?? []) : ($item->bomLines ?? []);
+        $iCategory = $isArr ? ($item['category_id'] ?? '') : $item->category_id;
+        $iFormat = $isArr ? ($item['document_format_id'] ?? '') : $item->document_format_id;
 
         // Proposal rule: open costing on edit when the item already has
         // colour/size or BOM data; keep collapsed for empty / new rows.
@@ -57,6 +61,7 @@
          data-product-id="{{ $iProduct }}" data-product-label="{{ $iProductLabel }}"
          data-supplier-id="{{ $iSupplier }}" data-supplier-label="{{ $iSupplierLabel }}"
          data-unit="{{ $iUnit }}" data-custom-values="{{ json_encode($iCustom) }}"
+         data-category-id="{{ $iCategory }}" data-format-id="{{ $iFormat }}"
      @endunless>
     <div class="card-header bg-body-tertiary py-2 px-3 d-flex flex-wrap align-items-center gap-2">
         <span class="fw-semibold item-index-label text-primary">Item</span>
@@ -75,6 +80,28 @@
     </div>
 
     <div class="card-body pt-3">
+        <div class="row g-2 mb-2">
+            <div class="col-md-6">
+                <label class="form-label small mb-1">Category <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm js-field js-item-category" data-field="category_id">
+                    <option value="">— Select —</option>
+                    @foreach($categories as $id => $label)
+                        <option value="{{ $id }}" @selected((string) $iCategory === (string) $id)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label small mb-1">Order Format <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm js-field js-item-format" data-field="document_format_id">
+                    <option value="">— Select —</option>
+                    @foreach($formats as $format)
+                        <option value="{{ $format->id }}" @selected((string) $iFormat === (string) $format->id)>{{ $format->name }}</option>
+                    @endforeach
+                </select>
+                <div class="form-text">Can differ from other item lines.</div>
+            </div>
+        </div>
+
         <div class="row g-2">
             <div class="col-md-3" data-column="design_no">
                 <label class="form-label small js-column-label mb-1">Design No. / Name</label>

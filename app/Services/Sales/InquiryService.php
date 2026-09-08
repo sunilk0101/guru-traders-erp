@@ -40,6 +40,7 @@ class InquiryService
 
             $this->syncItems($inquiry, $data['items'] ?? []);
             $this->syncFollowUps($inquiry, $data['followups'] ?? []);
+            $this->syncHeaderFromItems($inquiry);
 
             return $inquiry;
         });
@@ -55,9 +56,27 @@ class InquiryService
 
             $this->syncItems($inquiry, $data['items'] ?? []);
             $this->syncFollowUps($inquiry, $data['followups'] ?? []);
+            $this->syncHeaderFromItems($inquiry);
 
             return $inquiry->refresh();
         });
+    }
+
+    /**
+     * Header category/format stay as the inquiry's summary (list, show, OC
+     * conversion) — take them from the first item line that has them set.
+     */
+    private function syncHeaderFromItems(Inquiry $inquiry): void
+    {
+        $first = $inquiry->items()->orderBy('sort_order')->first();
+        if (! $first) {
+            return;
+        }
+
+        $inquiry->forceFill([
+            'category_id'        => $first->category_id ?? $inquiry->category_id,
+            'document_format_id' => $first->document_format_id ?? $inquiry->document_format_id,
+        ])->save();
     }
 
     /**
@@ -88,18 +107,20 @@ class InquiryService
 
         foreach (array_values($items) as $index => $itemData) {
             $item = $inquiry->items()->create([
-                'sort_order'   => $index,
-                'design_no'    => $itemData['design_no'] ?? null,
-                'description'  => $itemData['description'] ?? null,
-                'product_id'   => $itemData['product_id'] ?? null,
-                'supplier_id'  => $itemData['supplier_id'] ?? null,
-                'unit'         => $itemData['unit'] ?? null,
-                'fob_value_id' => $itemData['fob_value_id'] ?? null,
-                'price'        => $itemData['price'] ?? null,
-                'cost_price'   => $itemData['cost_price'] ?? null,
-                'status'       => $itemData['status'] ?? 'draft',
-                'remarks'      => $itemData['remarks'] ?? null,
-                'custom_values' => array_filter((array) ($itemData['custom'] ?? []), fn ($v) => filled($v)) ?: null,
+                'sort_order'         => $index,
+                'category_id'        => $itemData['category_id'] ?? $inquiry->category_id,
+                'document_format_id' => $itemData['document_format_id'] ?? $inquiry->document_format_id,
+                'design_no'          => $itemData['design_no'] ?? null,
+                'description'        => $itemData['description'] ?? null,
+                'product_id'         => $itemData['product_id'] ?? null,
+                'supplier_id'        => $itemData['supplier_id'] ?? null,
+                'unit'               => $itemData['unit'] ?? null,
+                'fob_value_id'       => $itemData['fob_value_id'] ?? null,
+                'price'              => $itemData['price'] ?? null,
+                'cost_price'         => $itemData['cost_price'] ?? null,
+                'status'             => $itemData['status'] ?? 'draft',
+                'remarks'            => $itemData['remarks'] ?? null,
+                'custom_values'      => array_filter((array) ($itemData['custom'] ?? []), fn ($v) => filled($v)) ?: null,
             ]);
 
             $qty = 0;

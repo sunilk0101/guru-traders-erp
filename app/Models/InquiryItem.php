@@ -18,6 +18,8 @@ class InquiryItem extends Model
 
     protected $fillable = [
         'sort_order',
+        'category_id',
+        'document_format_id',
         'design_no',
         'description',
         'product_id',
@@ -48,6 +50,16 @@ class InquiryItem extends Model
     public function inquiry(): BelongsTo
     {
         return $this->belongsTo(Inquiry::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    public function format(): BelongsTo
+    {
+        return $this->belongsTo(DocumentFormat::class, 'document_format_id');
     }
 
     public function product(): BelongsTo
