@@ -57,6 +57,9 @@
     $selectedIncoterms = $buyer?->incoterms->pluck('id')->all()
         ?: array_filter([$buyer?->incoterm_id]);
 
+    $selectedShipmentMethods = $buyer?->shipmentMethods->pluck('id')->all()
+        ?: array_filter([$buyer?->shipment_method_id]);
+
     /*
      * Whether the advance / at-sight boxes start open. Resolved server-side so
      * a failed validation round-trip does not flash them shut before the
@@ -481,12 +484,17 @@
                      placeholder="Search incoterms…"
                      hint="The default above is added automatically if you leave it out." />
 
-        {{-- Col S — dropdown from Shipment Method lookup (client: not free text). --}}
-        <x-ui.select name="shipment_method" label="Shipment Method" :options="$shipmentMethods"
-                     :selected="$buyer?->shipment_method" horizontal searchable
+        {{-- Col S. Same default + accepted pattern as Inco Terms. --}}
+        <x-ui.select name="shipment_method_id" label="Default Shipment Method" :options="$shipmentMethods"
+                     :selected="$buyer?->shipment_method_id" horizontal searchable
                      placeholder="Search method…"
                      data-create-url="{{ route('masters.buyers.shipment-methods.store') }}"
                      hint="Type a new method to add it for next time." />
+
+        <x-ui.select name="shipment_method_ids" label="Accepted Shipment Methods" :options="$shipmentMethods"
+                     :selected="$selectedShipmentMethods" horizontal searchable multiple
+                     placeholder="Search methods…"
+                     hint="The default above is added automatically if you leave it out." />
 
         {{-- Col T — a buyer invoiced in USD on one order and AED on the next is
              one buyer, so the accepted set is separate from the default. --}}

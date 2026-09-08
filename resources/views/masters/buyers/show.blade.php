@@ -111,8 +111,16 @@
                         @endif
                     </dd>
 
-                    <dt class="col-sm-5 text-body-secondary fw-normal">Shipment Method</dt>
-                    <dd class="col-sm-7">{{ $buyer->shipment_method ?: '—' }}</dd>
+                    <dt class="col-sm-5 text-body-secondary fw-normal">Shipment Methods</dt>
+                    <dd class="col-sm-7">
+                        {{ $buyer->shipmentMethod?->name ?: '—' }}
+                        @if($buyer->shipmentMethods->count() > 1)
+                            <div class="small text-body-secondary">
+                                Also accepts:
+                                {{ $buyer->shipmentMethods->where('id', '!=', $buyer->shipment_method_id)->pluck('name')->implode(', ') }}
+                            </div>
+                        @endif
+                    </dd>
 
                     <dt class="col-sm-5 text-body-secondary fw-normal">Currency of Payment</dt>
                     <dd class="col-sm-7">

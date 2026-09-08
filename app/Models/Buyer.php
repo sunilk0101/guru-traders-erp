@@ -66,7 +66,7 @@ class Buyer extends Model
         'advance_percent',
         'sight_percent',
         'incoterm_id',
-        'shipment_method',
+        'shipment_method_id',
         'currency_id',
         'bank_name',
         'account_number',
@@ -151,6 +151,11 @@ class Buyer extends Model
         return $this->belongsTo(Incoterm::class);
     }
 
+    public function shipmentMethod(): BelongsTo
+    {
+        return $this->belongsTo(ShipmentMethod::class);
+    }
+
     /**
      * The default currency — the one pre-selected on a new order and shown on
      * the list screen. `currencies()` is the full set this buyer may be
@@ -179,6 +184,11 @@ class Buyer extends Model
     public function incoterms(): BelongsToMany
     {
         return $this->belongsToMany(Incoterm::class, 'buyer_incoterm');
+    }
+
+    public function shipmentMethods(): BelongsToMany
+    {
+        return $this->belongsToMany(ShipmentMethod::class, 'buyer_shipment_method');
     }
 
     /*
