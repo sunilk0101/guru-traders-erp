@@ -75,6 +75,18 @@ class GeoSeeder extends Seeder
             'AU' => $this->australia(),
             'CA' => $this->canada(),
             'JP' => $this->japan(),
+            'FJ' => $this->fiji(),
+        ];
+    }
+
+    /** Fiji's four administrative divisions + main commercial cities. */
+    private function fiji(): array
+    {
+        return [
+            ['Central Division', 'C', ['Suva', 'Nasinu', 'Nausori', 'Lami']],
+            ['Western Division', 'W', ['Nadi', 'Lautoka', 'Ba', 'Sigatoka']],
+            ['Northern Division', 'N', ['Labasa', 'Savusavu']],
+            ['Eastern Division', 'E', ['Levuka']],
         ];
     }
 

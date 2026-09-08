@@ -184,8 +184,15 @@ function initCascadingSelects() {
                 if (ts) {
                     ts.addOptions(rows.map((row) => ({ value: String(row.id), text: row.name })));
                     ts.refreshOptions(false);
+                    if (!rows.length) {
+                        ts.settings.placeholder = 'No options for this selection';
+                        ts.control_input.placeholder = 'No options for this selection';
+                    }
                 } else {
-                    select.append(new Option(select.dataset.placeholder || '— Select —', ''));
+                    select.append(new Option(
+                        rows.length ? (select.dataset.placeholder || '— Select —') : 'No options for this selection',
+                        ''
+                    ));
                     rows.forEach((row) => select.append(new Option(row.name, row.id)));
                 }
             })
