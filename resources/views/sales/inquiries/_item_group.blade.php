@@ -21,7 +21,7 @@
             </button>
         </div>
         <div class="row g-2">
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <label class="form-label small mb-1">Category <span class="text-danger">*</span></label>
                 <select class="form-select form-select-sm js-group-category">
                     <option value="">— Select —</option>
@@ -30,7 +30,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-6">
                 <label class="form-label small mb-1">Order Format <span class="text-danger">*</span></label>
                 <select class="form-select form-select-sm js-group-format">
                     <option value="">— Select —</option>
@@ -38,16 +38,6 @@
                         <option value="{{ $format->id }}" @selected((string) $gFormat === (string) $format->id)>{{ $format->name }}</option>
                     @endforeach
                 </select>
-            </div>
-            <div class="col-md-4">
-                <label class="form-label small mb-1">Default FOB Value type</label>
-                <select class="form-select form-select-sm js-group-fob">
-                    <option value="">— Select —</option>
-                    @foreach($fobValues as $id => $name)
-                        <option value="{{ $id }}">{{ $name }}</option>
-                    @endforeach
-                </select>
-                <div class="form-text mb-0">Applied to every new row in this block — no need to repeat it per line.</div>
             </div>
         </div>
     </div>

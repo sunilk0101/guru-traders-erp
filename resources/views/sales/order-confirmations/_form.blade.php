@@ -213,21 +213,13 @@
                 </button>
                 <div class="costing-panel d-none mt-2 border-top pt-2">
                     <div class="row g-2 mb-2">
-                        <div class="col-md-3">
-                            <label class="form-label small">FOB Value</label>
-                            <select class="form-select form-select-sm js-field" data-field="fob_value_id">
-                                <option value="">— Select —</option>
-                                @foreach($fobValues as $id => $name)
-                                    <option value="{{ $id }}" @selected((string) $iFob === (string) $id)>{{ $name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-3">
+                        <input type="hidden" class="js-field" data-field="fob_value_id" value="{{ $iFob }}">
+                        <div class="col-md-4">
                             <label class="form-label small">Cost Price / Unit (₹)</label>
                             <input type="number" step="0.01" min="0" class="form-control form-control-sm js-field" data-field="cost_price" value="{{ $iCostPrice }}">
                             <div class="form-text">Internal — feeds Purchase Order</div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-8">
                             <label class="form-label small">Item Remarks</label>
                             <input type="text" class="form-control form-control-sm js-field" data-field="remarks" maxlength="500" value="{{ $iRemarks }}">
                         </div>
@@ -871,21 +863,13 @@ document.addEventListener('DOMContentLoaded', function () {
         </button>
         <div class="costing-panel d-none mt-2 border-top pt-2">
             <div class="row g-2 mb-2">
-                <div class="col-md-3">
-                    <label class="form-label small">FOB Value</label>
-                    <select class="form-select form-select-sm js-field" data-field="fob_value_id">
-                        <option value="">— Select —</option>
-                        @foreach($fobValues as $id => $name)
-                            <option value="{{ $id }}">{{ $name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-3">
+                <input type="hidden" class="js-field" data-field="fob_value_id">
+                <div class="col-md-4">
                     <label class="form-label small">Cost Price / Unit (₹)</label>
                     <input type="number" step="0.01" min="0" class="form-control form-control-sm js-field" data-field="cost_price">
                     <div class="form-text">Internal — feeds Purchase Order</div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-8">
                     <label class="form-label small">Item Remarks</label>
                     <input type="text" class="form-control form-control-sm js-field" data-field="remarks" maxlength="500">
                 </div>

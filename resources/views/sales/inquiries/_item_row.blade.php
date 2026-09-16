@@ -154,20 +154,11 @@
     <td colspan="16" class="bg-body-tertiary p-0">
         <div class="costing-panel p-3 border-top">
             <div class="row g-2 mb-3">
-                <div class="col-md-3">
-                    <label class="form-label small mb-1">FOB Value type</label>
-                    <select class="form-select form-select-sm js-fob-value-select">
-                        <option value="">— Select —</option>
-                        @foreach($fobValues as $id => $name)
-                            <option value="{{ $id }}" @selected((string) $iFob === (string) $id)>{{ $name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-5">
+                <div class="col-md-7">
                     <label class="form-label small mb-1">Description</label>
                     <input type="text" class="form-control form-control-sm js-desc-mirror" maxlength="500" value="{{ $iDesc }}">
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-5">
                     <label class="form-label small mb-1">Item remarks</label>
                     <input type="text" class="form-control form-control-sm js-remarks-mirror" maxlength="500" value="{{ $iRemarks }}">
                 </div>
