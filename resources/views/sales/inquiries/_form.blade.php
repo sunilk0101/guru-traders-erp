@@ -89,7 +89,7 @@
                      placeholder="Search or type to add a new source…"
                      data-create-url="{{ route('sales.inquiries.sources.store') }}" />
 
-        <x-ui.select name="buyer_id" label="Buyer" required horizontal
+        <x-ui.select name="buyer_id" label="Buyer" required horizontal searchable
                      :options="$buyers->pluck('label', 'id')" :selected="$val('buyer_id')" />
     </div>
 </x-ui.form-section>
@@ -97,18 +97,18 @@
 <x-ui.form-section title="Order Format & Terms" icon="bi-file-earmark-ruled"
                    subtitle="Defaults for new item lines — each line can use a different category / format.">
     <div class="form-stack">
-        <x-ui.select name="category_id" label="Default Category" horizontal
+        <x-ui.select name="category_id" label="Default Category" horizontal searchable
                      :options="$categories" :selected="$val('category_id')"
                      hint="Copied onto each new item line. Change per line below if needed." />
 
-        <x-ui.select name="document_format_id" label="Default Order Format" horizontal
+        <x-ui.select name="document_format_id" label="Default Order Format" horizontal searchable
                      :options="$formats->pluck('name', 'id')" :selected="$val('document_format_id')"
                      hint="Copied onto each new item line. Change per line below if needed." />
 
         <div class="row form-line">
             <label for="default_bom_template" class="col-sm-4 col-lg-3 col-form-label fw-semibold">Default BOM Cost</label>
             <div class="col-sm-8 col-lg-9">
-                <select id="default_bom_template" class="form-select">
+                <select id="default_bom_template" class="form-select" data-searchable data-placeholder="— None —">
                     <option value="">— None —</option>
                     @foreach(($bomTemplates ?? collect()) as $template)
                         <option value="{{ $template['key'] }}">{{ $template['name'] }} (₹{{ number_format((float) $template['total'], 2) }})</option>
@@ -126,7 +126,7 @@
             </div>
         </div>
 
-        <x-ui.select name="agent_id" label="Agent" horizontal
+        <x-ui.select name="agent_id" label="Agent" horizontal searchable
                      :options="$agents" :selected="$val('agent_id')" hint="Pre-fills from Buyer Master." />
 
         @php
@@ -161,7 +161,7 @@
             </div>
         </div>
 
-        <x-ui.select name="currency_id" label="Currency" required horizontal
+        <x-ui.select name="currency_id" label="Currency" required horizontal searchable
                      :options="$currencies" :selected="$val('currency_id')" hint="Pre-fills from Buyer Master." />
 
         <x-ui.field name="exchange_rate" label="Exchange Rate (₹)" type="number" horizontal
@@ -406,7 +406,7 @@ document.addEventListener('DOMContentLoaded', function () {
             opt.hidden = categoryId && meta ? ! meta.categories.includes(categoryId) : false;
         });
         if (clearIfInvalid && formatSelect.selectedOptions[0] && formatSelect.selectedOptions[0].hidden) {
-            formatSelect.value = '';
+            setSelectValue(formatSelect, '');
         }
     }
 
@@ -943,8 +943,45 @@ document.addEventListener('DOMContentLoaded', function () {
                     selectEl.appendChild(opt);
                 }
 
+                if (selectEl.dataset.upgradeSearchable === 'true' && typeof window.upgradeSearchableSelect === 'function') {
+                    if (selectEl.tomselect) {
+                        // Reloaded (e.g. category changed) — refresh the
+                        // already-built TomSelect's option list from the DOM
+                        // instead of constructing a second instance on it.
+                        selectEl.tomselect.sync();
+                        selectEl.tomselect.setValue(selected || '', true);
+                    } else {
+                        // First load — the option list (including any
+                        // pre-selected option) is already in the DOM, so
+                        // TomSelect picks up the right initial value at
+                        // construction time with no extra call needed.
+                        window.upgradeSearchableSelect(selectEl);
+                    }
+                }
+
                 if (onLoaded) onLoaded();
             });
+    }
+
+    /**
+     * "all drop downs should have a search option" (inquiry format sheet,
+     * B1) — every searchable <select> is wrapped by TomSelect, which keeps
+     * its own rendered UI in sync with the hidden native <select> only
+     * through its own API. Setting .value directly still updates the
+     * hidden select (so submitted data is correct) but leaves the visible
+     * control showing the old choice — so every place that sets a select's
+     * value from JS (buyer's cascaded agent/currency, category/format
+     * copied onto a new group, FOB default cascaded to a row) goes through
+     * this instead of a bare `el.value = ...`.
+     */
+    function setSelectValue(el, value) {
+        if (! el) return;
+        value = value === null || value === undefined ? '' : String(value);
+        if (el.tomselect) {
+            el.tomselect.setValue(value, true); // true = silent, no change-event loop
+        } else {
+            el.value = value;
+        }
     }
 
     function applyCommissionFromAgent(agentId) {
@@ -962,11 +999,11 @@ document.addEventListener('DOMContentLoaded', function () {
         applyBuyerCategoryFilter(true);
 
         if (buyer) {
-            if (agentSelect) agentSelect.value = buyer.agent_id || '';
+            if (agentSelect) setSelectValue(agentSelect, buyer.agent_id || '');
             applyCommissionFromAgent(buyer.agent_id || '');
-            document.getElementById('currency_id').value = buyer.currency_id || '';
+            setSelectValue(document.getElementById('currency_id'), buyer.currency_id || '');
         } else {
-            if (agentSelect) agentSelect.value = '';
+            if (agentSelect) setSelectValue(agentSelect, '');
             applyCommissionFromAgent('');
         }
     });
@@ -979,7 +1016,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // never saved (buyer linked later), inherit from Buyer Master once.
     if (agentSelect) {
         if (! agentSelect.value && buyerSelect?.value && buyers[buyerSelect.value]?.agent_id) {
-            agentSelect.value = buyers[buyerSelect.value].agent_id;
+            setSelectValue(agentSelect, buyers[buyerSelect.value].agent_id);
         }
         if (agentSelect.value) {
             applyCommissionFromAgent(agentSelect.value);
@@ -1244,8 +1281,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 const groupFobSelect = group?.querySelector('.js-group-fob');
                 if (groupFobSelect && groupFobSelect.value) fobValue = groupFobSelect.value;
             }
-            fobSelect.value = fobValue;
+            setSelectValue(fobSelect, fobValue);
             fobHidden.value = fobValue;
+        }
+        if (fobSelect && ! fobSelect.tomselect && typeof window.upgradeSearchableSelect === 'function') {
+            window.upgradeSearchableSelect(fobSelect);
         }
 
         // Default BOM cost from the inquiry header — only for a brand-new
@@ -1263,13 +1303,25 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function initGroup(groupEl) {
         if (! groupEl.querySelector('.js-group-category').value && categorySelect.value) {
-            groupEl.querySelector('.js-group-category').value = categorySelect.value;
+            setSelectValue(groupEl.querySelector('.js-group-category'), categorySelect.value);
         }
         if (! groupEl.querySelector('.js-group-format').value && formatSelect.value) {
-            groupEl.querySelector('.js-group-format').value = formatSelect.value;
+            setSelectValue(groupEl.querySelector('.js-group-format'), formatSelect.value);
         }
         filterGroupFormatOptions(groupEl, false);
         syncGroupMetaToRows(groupEl);
+
+        // "all drop downs should have a search option" — group-level selects
+        // are rendered fresh per block (server-rendered at page load, or
+        // cloned from <template> when "Add category block" is clicked), so
+        // they need the same upgrade the page-load sweep gives static
+        // selects, done explicitly here instead since it must run for both.
+        ['.js-group-category', '.js-group-format', '.js-group-fob'].forEach(function (sel) {
+            const el = groupEl.querySelector(sel);
+            if (el && ! el.tomselect && typeof window.upgradeSearchableSelect === 'function') {
+                window.upgradeSearchableSelect(el);
+            }
+        });
 
         const rows = groupEl.querySelector('.js-group-rows');
         if (rows && rows.querySelectorAll('[data-item]').length === 0) {
@@ -1449,7 +1501,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const hidden = itemEl.querySelector('[data-field="fob_value_id"]');
                 const select = itemQuery(itemEl, '.js-fob-value-select');
                 if (hidden && select && ! hidden.value) {
-                    select.value = e.target.value;
+                    setSelectValue(select, e.target.value);
                     hidden.value = e.target.value;
                 }
             });

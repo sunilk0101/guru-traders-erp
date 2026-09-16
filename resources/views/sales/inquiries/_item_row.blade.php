@@ -76,7 +76,7 @@
     @endunless>
     <td class="text-body-secondary small item-index-label">#</td>
     <td data-column="supplier" style="min-width:8rem">
-        <select class="form-select form-select-sm js-field js-supplier-select" data-field="supplier_id"><option value="">—</option></select>
+        <select class="form-select form-select-sm js-field js-supplier-select" data-field="supplier_id" data-upgrade-searchable="true" data-placeholder="Search suppliers…"><option value="">—</option></select>
     </td>
     <td data-column="design_no" style="min-width:7rem">
         <input type="text" class="form-control form-control-sm js-field" data-field="design_no" maxlength="150" value="{{ $iDesign }}">
@@ -85,7 +85,7 @@
         <div class="d-flex align-items-center gap-1">
             <img class="js-product-thumb rounded border bg-body-tertiary d-none flex-shrink-0" alt=""
                  style="width:28px;height:28px;object-fit:cover">
-            <select class="form-select form-select-sm js-field js-product-select" data-field="product_id"><option value="">—</option></select>
+            <select class="form-select form-select-sm js-field js-product-select" data-field="product_id" data-upgrade-searchable="true" data-placeholder="Search by code or name…"><option value="">—</option></select>
         </div>
     </td>
     <td style="min-width:6rem">
