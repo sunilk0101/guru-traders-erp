@@ -60,12 +60,20 @@
                             <td class="text-body-secondary">{{ $loop->iteration + ($products->currentPage() - 1) * $products->perPage() }}</td>
                             <td><span class="badge text-bg-light border font-monospace">{{ $product->item_group_code }}</span></td>
                             <td>
-                                <span class="fw-semibold">{{ $product->name }}</span>
-                                @if($product->name_on_export_document && $product->name_on_export_document !== $product->name)
-                                    <div class="small text-body-secondary">
-                                        <i class="bi bi-file-earmark-text me-1"></i>{{ $product->name_on_export_document }}
+                                <div class="d-flex align-items-center gap-2">
+                                    @if($product->image_url)
+                                        <img src="{{ $product->image_url }}" alt="" class="rounded border flex-shrink-0"
+                                             style="width:32px;height:32px;object-fit:cover">
+                                    @endif
+                                    <div>
+                                        <span class="fw-semibold">{{ $product->name }}</span>
+                                        @if($product->name_on_export_document && $product->name_on_export_document !== $product->name)
+                                            <div class="small text-body-secondary">
+                                                <i class="bi bi-file-earmark-text me-1"></i>{{ $product->name_on_export_document }}
+                                            </div>
+                                        @endif
                                     </div>
-                                @endif
+                                </div>
                             </td>
                             <td class="text-body-secondary">{{ $product->category?->name ?: '—' }}</td>
                             <td class="text-body-secondary font-monospace">{{ $product->hsn_code ?: '—' }}</td>

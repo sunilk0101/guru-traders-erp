@@ -66,94 +66,153 @@
 
 <x-ui.form-section title="Inquiry Identity" icon="bi-chat-square-text"
                    subtitle="→ Buyer Master · Agent Master · OC on confirmation">
-    <div class="row">
-        <div class="col-md-3 mb-3">
-            <label class="form-label fw-semibold">Inquiry No.</label>
-            <input type="text" class="form-control bg-body-tertiary" readonly
-                   value="{{ $isEdit ? $inquiry->inquiry_no : $numberPreview.' (auto)' }}">
-            <div class="form-text">FY {{ $financialYear }}</div>
+    <div class="form-stack">
+        <div class="row form-line">
+            <label class="col-sm-4 col-lg-3 col-form-label fw-semibold">Inquiry No.</label>
+            <div class="col-sm-8 col-lg-9">
+                <input type="text" class="form-control bg-body-tertiary" readonly
+                       value="{{ $isEdit ? $inquiry->inquiry_no : $numberPreview.' (auto)' }}">
+                <div class="form-text">FY {{ $financialYear }}</div>
+            </div>
         </div>
 
-        <x-ui.field name="inquiry_date" label="Date" type="date" required col="col-md-3"
+        <x-ui.field name="inquiry_date" label="Date" type="date" required horizontal
                     :value="$val('inquiry_date') instanceof \Carbon\CarbonInterface ? $val('inquiry_date')->format('Y-m-d') : $val('inquiry_date', now()->format('Y-m-d'))" />
 
-        <x-ui.field name="buyer_ref" label="Buyer's Ref / Season" col="col-md-3"
+        <x-ui.field name="buyer_ref" label="Buyer's Ref / Season" horizontal
                     :value="$val('buyer_ref')" placeholder="e.g. SS-2026" />
 
         {{-- Change request #8 — quick-add: typing a name not already in the
              list adds it, replacing the old "Other" + free-text box. --}}
-        <x-ui.select name="source_id" label="Source" required col="col-md-3" searchable
+        <x-ui.select name="source_id" label="Source" required horizontal searchable
                      :options="$sources" :selected="$val('source_id')"
                      placeholder="Search or type to add a new source…"
                      data-create-url="{{ route('sales.inquiries.sources.store') }}" />
-    </div>
 
-        <x-ui.select name="buyer_id" label="Buyer" required col="col-md-12"
+        <x-ui.select name="buyer_id" label="Buyer" required horizontal
                      :options="$buyers->pluck('label', 'id')" :selected="$val('buyer_id')" />
     </div>
 </x-ui.form-section>
 
 <x-ui.form-section title="Order Format & Terms" icon="bi-file-earmark-ruled"
                    subtitle="Defaults for new item lines — each line can use a different category / format.">
-    <div class="row">
-        <x-ui.select name="category_id" label="Default Category" col="col-md-6"
+    <div class="form-stack">
+        <x-ui.select name="category_id" label="Default Category" horizontal
                      :options="$categories" :selected="$val('category_id')"
                      hint="Copied onto each new item line. Change per line below if needed." />
 
-        <x-ui.select name="document_format_id" label="Default Order Format" col="col-md-6"
+        <x-ui.select name="document_format_id" label="Default Order Format" horizontal
                      :options="$formats->pluck('name', 'id')" :selected="$val('document_format_id')"
                      hint="Copied onto each new item line. Change per line below if needed." />
-    </div>
 
-    <div class="row">
-        <div class="col-md-6 mb-3">
-            <label class="form-label fw-semibold">Format Type</label>
-            <input type="text" class="form-control bg-body-tertiary" id="format_type" readonly placeholder="— From default format —">
+        <div class="row form-line">
+            <label for="default_bom_template" class="col-sm-4 col-lg-3 col-form-label fw-semibold">Default BOM Cost</label>
+            <div class="col-sm-8 col-lg-9">
+                <select id="default_bom_template" class="form-select">
+                    <option value="">— None —</option>
+                    @foreach(($bomTemplates ?? collect()) as $template)
+                        <option value="{{ $template['key'] }}">{{ $template['name'] }} (₹{{ number_format((float) $template['total'], 2) }})</option>
+                    @endforeach
+                </select>
+                <div class="form-text">Applied automatically to every new item row's BOM cost — pick from the dropdown once instead of on every line. Change per row below if needed.</div>
+            </div>
         </div>
-    </div>
 
-    <div class="row">
-        <x-ui.select name="agent_id" label="Agent" col="col-md-3"
-                     :options="$agents" :selected="$val('agent_id')" hint="Buyer Master" />
+        <div class="row form-line">
+            <label class="col-sm-4 col-lg-3 col-form-label fw-semibold">Format Type</label>
+            <div class="col-sm-8 col-lg-9">
+                <input type="text" class="form-control bg-body-tertiary" id="format_type" readonly
+                       placeholder="— From default format —">
+            </div>
+        </div>
 
-        <x-ui.select name="agent_commission_type" label="Commission Type" col="col-md-2"
-                     :options="['percent' => 'Percent', 'flat' => 'Flat']" :selected="$val('agent_commission_type')" />
+        <x-ui.select name="agent_id" label="Agent" horizontal
+                     :options="$agents" :selected="$val('agent_id')" hint="Pre-fills from Buyer Master." />
 
-        <x-ui.field name="agent_commission_value" label="Commission" type="number" col="col-md-2"
-                    :value="$val('agent_commission_value')" placeholder="0.00" />
+        @php
+            $commissionType = old('agent_commission_type', $val('agent_commission_type'));
+            $commissionValue = old('agent_commission_value', $val('agent_commission_value'));
+        @endphp
+        <div class="row form-line">
+            <label for="agent_commission_type" class="col-sm-4 col-lg-3 col-form-label fw-semibold">
+                Commission Type
+            </label>
+            <div class="col-sm-8 col-lg-9">
+                <select id="agent_commission_type" class="form-select" disabled>
+                    <option value="">— Select —</option>
+                    <option value="percent" @selected($commissionType === 'percent')>Percent</option>
+                    <option value="flat" @selected($commissionType === 'flat')>Flat</option>
+                </select>
+                <input type="hidden" name="agent_commission_type" id="agent_commission_type_hidden"
+                       value="{{ $commissionType }}">
+                <div class="form-text">From Agent Master — not editable on Inquiry.</div>
+            </div>
+        </div>
 
-        <x-ui.select name="currency_id" label="Currency" required col="col-md-2"
-                     :options="$currencies" :selected="$val('currency_id')" hint="Buyer Master" />
+        <div class="row form-line">
+            <label for="agent_commission_value" class="col-sm-4 col-lg-3 col-form-label fw-semibold">
+                Commission
+            </label>
+            <div class="col-sm-8 col-lg-9">
+                <input type="number" id="agent_commission_value" name="agent_commission_value"
+                       value="{{ $commissionValue }}" placeholder="0.00" readonly
+                       class="form-control bg-body-tertiary">
+                <div class="form-text">From Agent Master — not editable on Inquiry.</div>
+            </div>
+        </div>
 
-        <x-ui.field name="exchange_rate" label="Exchange Rate (₹)" type="number" col="col-md-3"
+        <x-ui.select name="currency_id" label="Currency" required horizontal
+                     :options="$currencies" :selected="$val('currency_id')" hint="Pre-fills from Buyer Master." />
+
+        <x-ui.field name="exchange_rate" label="Exchange Rate (₹)" type="number" horizontal
                     :value="$val('exchange_rate')" placeholder="e.g. 88.50" />
-    </div>
 
-    <div class="row">
-        <x-ui.field name="expected_shipment_date" label="Expected Shipment Date" type="date" col="col-md-4"
+        <x-ui.field name="expected_shipment_date" label="Expected Shipment Date" type="date" horizontal
                     :value="$val('expected_shipment_date') instanceof \Carbon\CarbonInterface ? $val('expected_shipment_date')->format('Y-m-d') : $val('expected_shipment_date')" />
 
-        <x-ui.field name="remarks" label="Remarks" col="col-md-8"
+        <x-ui.field name="remarks" label="Remarks" horizontal
                     :value="$val('remarks')" placeholder="General remarks…" />
     </div>
 </x-ui.form-section>
 
 <x-ui.form-section title="Items, Costing & Follow-ups" icon="bi-table"
-                   subtitle="Set Category and Order Format on each item — they can change every few lines.">
+                   subtitle="Add a category block, then fill many item rows in the table — like Excel. Different categories = separate blocks.">
     <div id="items-wrap">
-        @php $existingItems = old('items', $isEdit ? $inquiry->items : []); @endphp
+        @php
+            $existingItems = old('items', $isEdit ? $inquiry->items : []);
+            $grouped = [];
+            foreach ($existingItems as $item) {
+                $isArr = is_array($item);
+                $cid = (string) ($isArr ? ($item['category_id'] ?? '') : ($item->category_id ?? ''));
+                $fid = (string) ($isArr ? ($item['document_format_id'] ?? '') : ($item->document_format_id ?? ''));
+                $key = $cid.'|'.$fid;
+                $grouped[$key]['category_id'] = $cid;
+                $grouped[$key]['document_format_id'] = $fid;
+                $grouped[$key]['items'][] = $item;
+            }
+        @endphp
 
-        @foreach($existingItems as $item)
-            @include('sales.inquiries._item_card', ['item' => $item])
-        @endforeach
+        @forelse($grouped as $group)
+            @include('sales.inquiries._item_group', [
+                'gCategory' => $group['category_id'],
+                'gFormat' => $group['document_format_id'],
+                'groupItems' => $group['items'],
+            ])
+        @empty
+            @include('sales.inquiries._item_group', [
+                'gCategory' => old('category_id', $isEdit ? $inquiry->category_id : ''),
+                'gFormat' => old('document_format_id', $isEdit ? $inquiry->document_format_id : ''),
+                'groupItems' => [],
+            ])
+        @endforelse
     </div>
 
     @error('items')
         <div class="invalid-feedback d-block mb-2">{{ $message }}</div>
     @enderror
 
-    <button type="button" id="add-item" class="btn btn-sm btn-primary">
-        <i class="bi bi-plus-lg me-1"></i>Add Item
+    <button type="button" id="add-item-group" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-plus-lg me-1"></i>Add category block
     </button>
 
     <hr class="my-4">
@@ -186,18 +245,20 @@
 
 <x-ui.form-section title="Delivery & Packing Details" icon="bi-box-seam"
                    subtitle="Pre-fills from Order Format · editable per inquiry. Reference images come from the format (print defaults).">
-    <div class="row">
-        <x-ui.textarea name="delivery_details" label="Delivery Details" required col="col-12"
+    <div class="form-stack">
+        <x-ui.textarea name="delivery_details" label="Delivery Details" required horizontal
                        rows="3" :value="$val('delivery_details')" />
-    </div>
-    <div class="row">
-        <x-ui.textarea name="packing_details" label="Packing Details" required col="col-12"
+
+        <x-ui.textarea name="packing_details" label="Packing Details" required horizontal
                        rows="3" :value="$val('packing_details')" />
-    </div>
-    <div class="mt-2">
-        <label class="form-label fw-semibold">Format reference images</label>
-        <div id="format-reference-images" class="d-flex flex-wrap gap-3 text-body-secondary small">
-            Pick an Order Format to load its packing / marking reference images.
+
+        <div class="row form-line">
+            <label class="col-sm-4 col-lg-3 col-form-label fw-semibold">Format reference images</label>
+            <div class="col-sm-8 col-lg-9">
+                <div id="format-reference-images" class="d-flex flex-wrap gap-3 text-body-secondary small">
+                    Pick an Order Format to load its packing / marking reference images.
+                </div>
+            </div>
         </div>
     </div>
 </x-ui.form-section>
@@ -235,6 +296,37 @@
 <style>
     .js-toggle-costing .js-costing-chevron { transition: transform .15s ease; }
     .js-toggle-costing.is-open .js-costing-chevron { transform: rotate(90deg); }
+
+    /* "I need the columns to be showcased properly so I can see what the
+       values are" — the Excel-style item table is wide by nature (16
+       columns), so instead of squeezing text it gets a visible, obviously
+       scrollable strip and slightly tighter cell padding to fit more
+       without truncating any value. */
+    .inquiry-items-table th,
+    .inquiry-items-table td {
+        padding-left: .4rem;
+        padding-right: .4rem;
+    }
+    .inquiry-items-table .form-control,
+    .inquiry-items-table .form-select {
+        font-size: .8125rem;
+        padding-left: .4rem;
+        padding-right: .4rem;
+    }
+    .inquiry-items-table input[readonly] {
+        text-align: right;
+    }
+    .inquiry-item-group .table-responsive {
+        scrollbar-width: thin;
+        border-bottom: 1px solid var(--bs-border-color);
+    }
+    .inquiry-item-group .table-responsive::-webkit-scrollbar {
+        height: 10px;
+    }
+    .inquiry-item-group .table-responsive::-webkit-scrollbar-thumb {
+        background-color: var(--bs-secondary-color);
+        border-radius: 6px;
+    }
 </style>
 @endpush
 
@@ -249,8 +341,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const formats = @json($formatsJs);
 
+    const agentCommissions = @json($agentCommissions ?? []);
+
     const productsUrl  = "{{ route('sales.inquiries.products') }}";
     const suppliersUrl = "{{ route('sales.inquiries.suppliers') }}";
+    const quoteFobUrl  = "{{ route('sales.inquiries.quote-fob') }}";
+    const defaultBomLines = @json($defaultBomLines ?? []);
+    const bomTemplates = @json(($bomTemplates ?? collect())->values());
 
     const buyerSelect    = document.getElementById('buyer_id');
     const categorySelect = document.getElementById('category_id');
@@ -259,6 +356,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const deliveryEl     = document.getElementById('delivery_details');
     const packingEl      = document.getElementById('packing_details');
     const itemsWrap      = document.getElementById('items-wrap');
+    const defaultBomTemplateEl = document.getElementById('default_bom_template');
+    const agentSelect    = document.getElementById('agent_id');
+    const commissionTypeEl = document.getElementById('agent_commission_type');
+    const commissionTypeHidden = document.getElementById('agent_commission_type_hidden');
+    const commissionValueEl = document.getElementById('agent_commission_value');
 
     /* ------------------------------ Cascades ------------------------------ */
 
@@ -290,7 +392,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const buyer = buyers[buyerSelect.value];
         const allowed = buyer ? buyer.categories : null;
         filterOptionsByCategory(categorySelect, allowed, clearIfInvalid);
-        itemsWrap.querySelectorAll('.js-item-category').forEach(function (sel) {
+        itemsWrap.querySelectorAll('.js-group-category').forEach(function (sel) {
             filterOptionsByCategory(sel, allowed, clearIfInvalid);
         });
     }
@@ -307,9 +409,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function filterItemFormatOptions(itemEl, clearIfInvalid) {
-        const categorySel = itemEl.querySelector('.js-item-category');
-        const formatSel = itemEl.querySelector('.js-item-format');
+    function filterGroupFormatOptions(groupEl, clearIfInvalid) {
+        const categorySel = groupEl.querySelector('.js-group-category');
+        const formatSel = groupEl.querySelector('.js-group-format');
         const categoryId = categorySel && categorySel.value ? Number(categorySel.value) : null;
         Array.from(formatSel.options).forEach(function (opt) {
             if (opt.value === '') return;
@@ -319,10 +421,53 @@ document.addEventListener('DOMContentLoaded', function () {
         if (clearIfInvalid && formatSel.selectedOptions[0] && formatSel.selectedOptions[0].hidden) {
             formatSel.value = '';
         }
+        // Auto-pick when only one format is visible for this category.
+        const visible = Array.from(formatSel.options).filter(function (opt) {
+            return opt.value !== '' && ! opt.hidden;
+        });
+        if (! formatSel.value && visible.length === 1) {
+            formatSel.value = visible[0].value;
+        }
+    }
+
+    function syncGroupMetaToRows(groupEl) {
+        const categoryId = groupEl.querySelector('.js-group-category')?.value || '';
+        const formatId = groupEl.querySelector('.js-group-format')?.value || '';
+        groupEl.querySelectorAll('[data-item]').forEach(function (itemEl) {
+            const cat = itemEl.querySelector('.js-item-category');
+            const fmt = itemEl.querySelector('.js-item-format');
+            if (cat) cat.value = categoryId;
+            if (fmt) fmt.value = formatId;
+        });
+    }
+
+    function itemCostingRow(itemEl) {
+        const next = itemEl.nextElementSibling;
+        return next && next.matches('[data-item-costing]') ? next : null;
+    }
+
+    function itemFromEventTarget(target) {
+        return target.closest('[data-item]')
+            || target.closest('[data-item-costing]')?.previousElementSibling
+            || null;
+    }
+
+    function itemQuery(itemEl, selector) {
+        const costing = itemCostingRow(itemEl);
+        return itemEl.querySelector(selector) || (costing ? costing.querySelector(selector) : null);
+    }
+
+    function itemQueryAll(itemEl, selector) {
+        const costing = itemCostingRow(itemEl);
+        const a = Array.from(itemEl.querySelectorAll(selector));
+        const b = costing ? Array.from(costing.querySelectorAll(selector)) : [];
+        return a.concat(b);
     }
 
     function itemFormatMeta(itemEl) {
-        const formatSel = itemEl.querySelector('.js-item-format');
+        const group = itemEl.closest('[data-item-group]');
+        const formatSel = group?.querySelector('.js-group-format')
+            || itemEl.querySelector('.js-item-format');
         const id = formatSel && formatSel.value ? formatSel.value : formatSelect.value;
         return formats[id] || null;
     }
@@ -382,17 +527,17 @@ document.addEventListener('DOMContentLoaded', function () {
         // when the format has multi-colour off — only the ability to name it
         // depends on the format's own colour column.
         const colourNamesEnabled = !! (meta && meta.allow_multiple_colours && (! columns.colour || columns.colour.enabled));
-        itemEl.querySelectorAll('.js-colour-name').forEach(function (input) {
+        itemQueryAll(itemEl, '.js-colour-name').forEach(function (input) {
             input.classList.toggle('d-none', ! colourNamesEnabled);
         });
 
-        itemEl.querySelectorAll(':scope .colours-wrap > .inquiry-colour').forEach(function (colourEl) {
+        itemQueryAll(itemEl, '.inquiry-colour').forEach(function (colourEl) {
             applySizeGrid(colourEl, meta);
         });
 
         applyCustomColumns(itemEl, (meta && meta.customColumns) || []);
 
-        const addColourBtn = itemEl.querySelector('.js-add-colour');
+        const addColourBtn = itemQuery(itemEl, '.js-add-colour');
         if (addColourBtn) {
             addColourBtn.classList.toggle('d-none', ! (meta && meta.allow_multiple_colours));
         }
@@ -466,7 +611,7 @@ document.addEventListener('DOMContentLoaded', function () {
      * item's data-custom-values seeds the fields on first load.
      */
     function applyCustomColumns(itemEl, customColumns) {
-        const wrap = itemEl.querySelector('.custom-fields-wrap');
+        const wrap = itemQuery(itemEl, '.custom-fields-wrap');
         if (! wrap) return;
 
         const current = {};
@@ -532,26 +677,123 @@ document.addEventListener('DOMContentLoaded', function () {
         applyColumnsToItem(itemEl, itemFormatMeta(itemEl));
     }
 
-    function applyProductBom(itemEl) {
-        const productSelect = itemEl.querySelector('.js-product-select');
-        const opt = productSelect && productSelect.selectedOptions[0];
-        const bomWrap = itemEl.querySelector('.bom-wrap');
-        if (! bomWrap || ! opt) return;
-
-        let rows = [];
-        try { rows = JSON.parse(opt.dataset.bom || '[]') || []; } catch (e) { rows = []; }
-
-        bomWrap.innerHTML = '';
-        rows.forEach(function (row) {
-            // Snapshot from Product Master — keep is_custom=false so a later
-            // save does not rewrite every line as a hand-added custom row.
-            bomWrap.appendChild(buildBomRow(Object.assign({}, row, { is_custom: false })));
+    /**
+     * "I need a small image against every line ... I need it to show up here
+     * as well" — mirrors the selected product's photo onto every .js-product-thumb
+     * in the row, which is both the thumbnail next to the Product select and
+     * the one in the BOM trims panel header (itemQueryAll spans both).
+     */
+    function updateProductThumb(itemEl) {
+        const select = itemEl.querySelector('.js-product-select');
+        const opt = select && select.selectedOptions[0];
+        const url = opt && opt.dataset.image ? opt.dataset.image : '';
+        itemQueryAll(itemEl, '.js-product-thumb').forEach(function (thumb) {
+            if (url) {
+                thumb.src = url;
+                thumb.classList.remove('d-none');
+            } else {
+                thumb.src = '';
+                thumb.classList.add('d-none');
+            }
         });
     }
 
+    /**
+     * "the code should come immediately in the design number once I choose
+     * the supplier ... AJC- (here I'll type the design number)". Seeds the
+     * supplier's display code as a prefix the moment a supplier is picked,
+     * and swaps the prefix if the supplier is changed again — but leaves any
+     * other text the user actually typed alone.
+     */
+    function applySupplierCodeToDesign(itemEl, supplierSelect) {
+        const designInput = itemEl.querySelector('[data-field="design_no"]');
+        if (! designInput) return;
+
+        const opt = supplierSelect.selectedOptions[0];
+        const code = opt && opt.dataset.code ? opt.dataset.code : '';
+        const current = designInput.value || '';
+        const prevCode = designInput.dataset.autoSupplierCode || '';
+
+        const isBlank = ! current;
+        const isUntouchedAutoPrefix = prevCode && (current === prevCode + '-' || current.startsWith(prevCode + '-'));
+
+        if (isBlank || isUntouchedAutoPrefix) {
+            const rest = isUntouchedAutoPrefix ? current.slice(prevCode.length + 1) : '';
+            designInput.value = code ? code + '-' + rest : rest;
+        }
+        designInput.dataset.autoSupplierCode = code;
+    }
+
+    function applyProductBom(itemEl) {
+        // Product BOM trims stay in Product Master. Inquiry uses the BOM cost dropdown.
+    }
+
+    function findBomTemplate(key) {
+        return (bomTemplates || []).find(function (row) { return row.key === key; }) || null;
+    }
+
+    function applyBomTemplate(itemEl, key) {
+        const wrap = itemQuery(itemEl, '.bom-wrap');
+        const select = itemEl.querySelector('.js-bom-template');
+        if (! wrap) return;
+
+        if (! key) {
+            wrap.innerHTML = '';
+            const customOpt = select?.querySelector('.js-bom-custom-opt');
+            if (customOpt) customOpt.hidden = true;
+            recalcItem(itemEl);
+            return;
+        }
+
+        const template = findBomTemplate(key);
+        if (! template) return;
+
+        wrap.innerHTML = '';
+        (template.lines || []).forEach(function (row) {
+            wrap.appendChild(buildBomRow(Object.assign({}, row, { is_custom: true })));
+        });
+        if (select) select.value = key;
+        const customOpt = select?.querySelector('.js-bom-custom-opt');
+        if (customOpt) customOpt.hidden = true;
+        recalcItem(itemEl);
+    }
+
+    function markBomCustom(itemEl) {
+        const select = itemEl.querySelector('.js-bom-template');
+        const customOpt = select?.querySelector('.js-bom-custom-opt');
+        const cost = parseFloat(itemEl.querySelector('.js-bom-cost')?.value) || 0;
+        if (! select || ! customOpt) return;
+        customOpt.hidden = cost <= 0;
+        customOpt.textContent = 'Custom (₹' + cost.toFixed(2) + ')';
+        select.value = cost > 0 ? 'custom' : '';
+    }
+
+    function syncBomDropdown(itemEl) {
+        const select = itemEl.querySelector('.js-bom-template');
+        if (! select) return;
+        const cost = parseFloat(itemEl.querySelector('.js-bom-cost')?.value) || 0;
+        const match = (bomTemplates || []).find(function (row) {
+            return Math.abs((parseFloat(row.total) || 0) - cost) < 0.005 && cost > 0;
+        });
+        const customOpt = select.querySelector('.js-bom-custom-opt');
+        if (match) {
+            select.value = match.key;
+            if (customOpt) customOpt.hidden = true;
+            return;
+        }
+        if (cost > 0 && customOpt) {
+            customOpt.hidden = false;
+            customOpt.textContent = 'Custom (₹' + cost.toFixed(2) + ')';
+            select.value = 'custom';
+        } else if (customOpt) {
+            customOpt.hidden = true;
+            if (select.value === 'custom') select.value = '';
+        }
+    }
+
     function renderIncentiveEstimate(itemEl) {
-        const box = itemEl.querySelector('[data-incentives-box]');
-        const host = itemEl.querySelector('.js-incentive-estimate');
+        const box = itemQuery(itemEl, '[data-incentives-box]');
+        const host = itemQuery(itemEl, '.js-incentive-estimate');
         const productSelect = itemEl.querySelector('.js-product-select');
         const opt = productSelect && productSelect.selectedOptions[0];
         if (! box || ! host) return;
@@ -587,29 +829,46 @@ document.addEventListener('DOMContentLoaded', function () {
         data = data || {};
         const node = bomTemplate.content.cloneNode(true);
         const row = node.querySelector('[data-bom-row]');
-        const isCustom = data.is_custom === true || data.is_custom === 1 || data.is_custom === '1';
+        const isCustom = data.is_custom === true || data.is_custom === 1 || data.is_custom === '1' || data.is_custom === undefined;
         row.dataset.isCustom = isCustom ? '1' : '0';
         row.querySelector('.js-bom-name').value = data.component_name || '';
+        row.querySelector('.js-bom-size').value = data.size || '';
         row.querySelector('.js-bom-qty').value = data.qty != null ? data.qty : 1;
-        row.querySelector('.js-bom-unit').value = data.unit || '';
+        row.querySelector('.js-bom-rate').value = data.rate != null ? data.rate : '';
         row.querySelector('.js-bom-remarks').value = data.remarks || '';
+        const q = parseFloat(row.querySelector('.js-bom-qty').value) || 0;
+        const r = parseFloat(row.querySelector('.js-bom-rate').value) || 0;
+        row.querySelector('.js-bom-total').value = (q * r) ? (q * r).toFixed(2) : '';
         return node;
+    }
+
+    function loadDefaultBom(itemEl) {
+        const wrap = itemQuery(itemEl, '.bom-wrap');
+        if (! wrap) return;
+        wrap.innerHTML = '';
+        (defaultBomLines || []).forEach(function (row) {
+            wrap.appendChild(buildBomRow(Object.assign({}, row, { is_custom: true })));
+        });
+        recalcItem(itemEl);
     }
 
     function refreshItemProductsAndSuppliers(itemEl) {
         const targets = itemEl
             ? [itemEl]
-            : Array.from(itemsWrap.querySelectorAll('.inquiry-item'));
+            : Array.from(itemsWrap.querySelectorAll('[data-item]'));
 
         targets.forEach(function (el) {
-            const categorySel = el.querySelector('.js-item-category');
-            const categoryId = (categorySel && categorySel.value) || categorySelect.value || '';
+            const group = el.closest('[data-item-group]');
+            const categoryId = group?.querySelector('.js-group-category')?.value
+                || el.querySelector('.js-item-category')?.value
+                || categorySelect.value
+                || '';
             loadSelectOptions(el.querySelector('.js-product-select'), productsUrl, categoryId);
             loadSelectOptions(el.querySelector('.js-supplier-select'), suppliersUrl, categoryId);
         });
     }
 
-    function loadSelectOptions(selectEl, url, categoryId, presetValue, presetLabel) {
+    function loadSelectOptions(selectEl, url, categoryId, presetValue, presetLabel, onLoaded) {
         const selected = presetValue !== undefined ? presetValue : selectEl.dataset.selected;
 
         fetch(url + '?category_id=' + encodeURIComponent(categoryId || ''))
@@ -632,6 +891,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (row.incentives !== undefined) {
                         opt.dataset.incentives = JSON.stringify(row.incentives || []);
                     }
+                    // Product's small reference photo (task: "I need a small
+                    // image against every line") and Supplier's display code
+                    // (task: auto-prefix Design no with it) ride along here.
+                    if (row.image_url !== undefined) {
+                        opt.dataset.image = row.image_url || '';
+                    }
+                    if (row.code !== undefined) {
+                        opt.dataset.code = row.code || '';
+                    }
                     if (selected && String(row.id) === String(selected)) { opt.selected = true; found = true; }
                     selectEl.appendChild(opt);
                 });
@@ -646,7 +914,19 @@ document.addEventListener('DOMContentLoaded', function () {
                     opt.selected = true;
                     selectEl.appendChild(opt);
                 }
+
+                if (onLoaded) onLoaded();
             });
+    }
+
+    function applyCommissionFromAgent(agentId) {
+        const row = agentId ? agentCommissions[agentId] : null;
+        const type = row ? (row.type || '') : '';
+        const value = row ? row.value : '';
+
+        if (commissionTypeEl) commissionTypeEl.value = type;
+        if (commissionTypeHidden) commissionTypeHidden.value = type;
+        if (commissionValueEl) commissionValueEl.value = value === null || value === undefined ? '' : value;
     }
 
     buyerSelect.addEventListener('change', function () {
@@ -654,12 +934,29 @@ document.addEventListener('DOMContentLoaded', function () {
         applyBuyerCategoryFilter(true);
 
         if (buyer) {
-            document.getElementById('agent_id').value = buyer.agent_id || '';
-            document.getElementById('agent_commission_type').value = buyer.agent_commission_type || '';
-            document.getElementById('agent_commission_value').value = buyer.agent_commission_value || '';
+            if (agentSelect) agentSelect.value = buyer.agent_id || '';
+            applyCommissionFromAgent(buyer.agent_id || '');
             document.getElementById('currency_id').value = buyer.currency_id || '';
+        } else {
+            if (agentSelect) agentSelect.value = '';
+            applyCommissionFromAgent('');
         }
     });
+
+    agentSelect?.addEventListener('change', function () {
+        applyCommissionFromAgent(agentSelect.value || '');
+    });
+
+    // Edit / reload: keep commission locked to Agent Master. If Agent was
+    // never saved (buyer linked later), inherit from Buyer Master once.
+    if (agentSelect) {
+        if (! agentSelect.value && buyerSelect?.value && buyers[buyerSelect.value]?.agent_id) {
+            agentSelect.value = buyers[buyerSelect.value].agent_id;
+        }
+        if (agentSelect.value) {
+            applyCommissionFromAgent(agentSelect.value);
+        }
+    }
 
     categorySelect.addEventListener('change', function () {
         applyCategoryFormatFilter(true);
@@ -709,22 +1006,71 @@ document.addEventListener('DOMContentLoaded', function () {
 
     renderFormatReferenceImages(formats[formatSelect.value]);
 
-    /* ------------------------------ Item rows ------------------------------ */
+    /* ------------------------------ Item groups / rows ------------------------------ */
 
     const itemTemplate = document.getElementById('tpl-item');
+    const groupTemplate = document.getElementById('tpl-item-group');
     const colourTemplate = document.getElementById('tpl-colour');
     const sizeTemplate = document.getElementById('tpl-size');
     const bomTemplate = document.getElementById('tpl-bom');
 
     function renumberItems() {
-        itemsWrap.querySelectorAll('.inquiry-item').forEach(function (el, index) {
-            el.querySelector('.item-index-label').textContent = 'Item #' + (index + 1);
+        let n = 0;
+        itemsWrap.querySelectorAll('[data-item-group]').forEach(function (group, gIndex) {
+            const label = group.querySelector('.js-group-label');
+            if (label) label.textContent = 'Category block ' + String.fromCharCode(65 + gIndex);
+            group.querySelectorAll('[data-item]').forEach(function (el) {
+                n += 1;
+                const cell = el.querySelector('.item-index-label');
+                if (cell) cell.textContent = String(n);
+            });
         });
+    }
+
+    function ensureQuickColourSize(itemEl) {
+        let colourEl = itemQuery(itemEl, '.inquiry-colour');
+        if (! colourEl) {
+            addColour(itemEl);
+            colourEl = itemQuery(itemEl, '.inquiry-colour');
+        }
+        let sizeEl = colourEl.querySelector('.inquiry-size');
+        if (! sizeEl) {
+            addSize(colourEl);
+            sizeEl = colourEl.querySelector('.inquiry-size');
+            const label = sizeEl.querySelector('.js-size-label');
+            if (label && ! label.value) label.value = 'Qty';
+        }
+        return { colourEl: colourEl, sizeEl: sizeEl };
+    }
+
+    function syncQuickToBreakdown(itemEl) {
+        const quickColour = itemEl.querySelector('.js-quick-colour');
+        const quickQty = itemEl.querySelector('.js-quick-qty');
+        if (! quickColour && ! quickQty) return;
+        const pair = ensureQuickColourSize(itemEl);
+        if (quickColour) pair.colourEl.querySelector('.js-colour-name').value = quickColour.value;
+        if (quickQty) pair.sizeEl.querySelector('.js-size-qty').value = quickQty.value || 0;
+        recalcItem(itemEl);
+    }
+
+    function syncBreakdownToQuick(itemEl) {
+        const colourEl = itemQuery(itemEl, '.inquiry-colour');
+        const quickColour = itemEl.querySelector('.js-quick-colour');
+        const quickQty = itemEl.querySelector('.js-quick-qty');
+        if (! colourEl) return;
+        if (quickColour && document.activeElement !== quickColour) {
+            quickColour.value = colourEl.querySelector('.js-colour-name')?.value || '';
+        }
+        let qty = 0;
+        itemQueryAll(itemEl, '.js-size-qty').forEach(function (input) {
+            qty += parseInt(input.value || '0', 10) || 0;
+        });
+        if (quickQty && document.activeElement !== quickQty) quickQty.value = qty || '';
     }
 
     function recalcItem(itemEl) {
         let qty = 0;
-        itemEl.querySelectorAll('.inquiry-colour').forEach(function (colourEl) {
+        itemQueryAll(itemEl, '.inquiry-colour').forEach(function (colourEl) {
             let colourQty = 0;
             colourEl.querySelectorAll('.js-size-qty').forEach(function (input) {
                 colourQty += parseInt(input.value || '0', 10) || 0;
@@ -734,21 +1080,89 @@ document.addEventListener('DOMContentLoaded', function () {
             qty += colourQty;
         });
 
-        const price = parseFloat(itemEl.querySelector('.js-price').value || '0') || 0;
+        const quickQtyEl = itemEl.querySelector('.js-quick-qty');
+        if (qty === 0 && quickQtyEl && quickQtyEl.value !== '') {
+            qty = parseInt(quickQtyEl.value || '0', 10) || 0;
+        }
+
+        let bomCost = 0;
+        itemQueryAll(itemEl, '[data-bom-row]').forEach(function (row) {
+            const q = parseFloat(row.querySelector('.js-bom-qty')?.value) || 0;
+            const r = parseFloat(row.querySelector('.js-bom-rate')?.value) || 0;
+            const total = q * r;
+            const totalEl = row.querySelector('.js-bom-total');
+            if (totalEl) totalEl.value = total ? total.toFixed(2) : '';
+            bomCost += total;
+        });
+
+        const price = parseFloat(itemEl.querySelector('.js-price')?.value || '0') || 0;
+        const cost = parseFloat(itemEl.querySelector('.js-cost-price')?.value || '0') || 0;
+        const finalCost = cost + bomCost;
         const amount = (qty * price).toFixed(2);
 
-        itemEl.querySelector('.js-qty-display').value = qty;
-        itemEl.querySelector('.js-amount-display').value = amount;
+        const qtyDisplay = itemEl.querySelector('.js-qty-display');
+        const amountDisplay = itemEl.querySelector('.js-amount-display');
+        const bomCostEl = itemEl.querySelector('.js-bom-cost');
+        const finalCostEl = itemEl.querySelector('.js-final-cost');
+        const totalCostEl = itemEl.querySelector('.js-total-cost');
+        const totalFobEl = itemEl.querySelector('.js-total-fob');
+        const fobUnitEl = itemEl.querySelector('.js-fob-unit');
 
-        const qtyBadge = itemEl.querySelector('.js-item-qty-badge');
-        const amountBadge = itemEl.querySelector('.js-item-amount-badge');
-        if (qtyBadge) qtyBadge.textContent = 'Qty ' + qty;
-        if (amountBadge) amountBadge.textContent = 'Amt ' + amount;
+        if (qtyDisplay) qtyDisplay.value = qty;
+        if (amountDisplay) amountDisplay.value = amount;
+        if (bomCostEl) bomCostEl.value = bomCost ? bomCost.toFixed(2) : '';
+        if (finalCostEl) finalCostEl.value = finalCost ? finalCost.toFixed(2) : '';
+        if (totalCostEl) totalCostEl.value = (finalCost && qty) ? (finalCost * qty).toFixed(2) : '';
+
+        const fobUnit = parseFloat(fobUnitEl?.value) || 0;
+        if (totalFobEl) totalFobEl.value = (fobUnit && qty) ? (fobUnit * qty).toFixed(2) : '';
+
+        syncBomDropdown(itemEl);
+        scheduleFobQuote(itemEl, finalCost);
+    }
+
+    let fobTimers = new WeakMap();
+    function scheduleFobQuote(itemEl, finalCost) {
+        if (fobTimers.has(itemEl)) clearTimeout(fobTimers.get(itemEl));
+        fobTimers.set(itemEl, setTimeout(function () {
+            refreshFobUnit(itemEl, finalCost);
+        }, 280));
+    }
+
+    function refreshFobUnit(itemEl, finalCost) {
+        const fobUnitEl = itemEl.querySelector('.js-fob-unit');
+        const totalFobEl = itemEl.querySelector('.js-total-fob');
+        const qty = parseFloat(itemEl.querySelector('.js-qty-display')?.value) || 0;
+        if (! fobUnitEl) return;
+
+        if (! finalCost || finalCost <= 0) {
+            fobUnitEl.value = '';
+            if (totalFobEl) totalFobEl.value = '';
+            return;
+        }
+
+        const params = new URLSearchParams({
+            final_cost: String(finalCost),
+            buyer_id: buyerSelect.value || '',
+            supplier_id: itemEl.querySelector('.js-supplier-select')?.value || '',
+            exchange_rate: document.getElementById('exchange_rate')?.value || '',
+            currency_id: document.getElementById('currency_id')?.value || '',
+        });
+
+        fetch(quoteFobUrl + '?' + params.toString())
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                const fob = parseFloat(data.fob_unit) || 0;
+                fobUnitEl.value = fob ? fob.toFixed(4).replace(/\.?0+$/, '') : '';
+                if (totalFobEl) totalFobEl.value = (fob && qty) ? (fob * qty).toFixed(2) : '';
+            })
+            .catch(function () { /* keep last value */ });
     }
 
     function addColour(itemEl) {
         const node = colourTemplate.content.cloneNode(true);
-        const coloursWrap = itemEl.querySelector('.colours-wrap');
+        const coloursWrap = itemQuery(itemEl, '.colours-wrap');
+        if (! coloursWrap) return;
         coloursWrap.appendChild(node);
         applySizeGrid(coloursWrap.lastElementChild, itemFormatMeta(itemEl));
         recalcItem(itemEl);
@@ -760,30 +1174,18 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function initItem(itemEl) {
-        const categorySel = itemEl.querySelector('.js-item-category');
-        const formatSel = itemEl.querySelector('.js-item-format');
+        const group = itemEl.closest('[data-item-group]');
+        syncGroupMetaToRows(group);
 
-        // Prefill from defaults when the line has none yet (new template row).
-        if (categorySel && ! categorySel.value && categorySelect.value) {
-            categorySel.value = categorySelect.value;
-        }
-        if (formatSel && ! formatSel.value && formatSelect.value) {
-            formatSel.value = formatSelect.value;
-        }
-        if (itemEl.dataset.categoryId && categorySel && ! categorySel.value) {
-            categorySel.value = itemEl.dataset.categoryId;
-        }
-        if (itemEl.dataset.formatId && formatSel && ! formatSel.value) {
-            formatSel.value = itemEl.dataset.formatId;
-        }
-
-        filterItemFormatOptions(itemEl, false);
-
-        const categoryId = (categorySel && categorySel.value) || categorySelect.value || '';
+        const categoryId = group?.querySelector('.js-group-category')?.value
+            || itemEl.querySelector('.js-item-category')?.value
+            || categorySelect.value
+            || '';
 
         loadSelectOptions(
             itemEl.querySelector('.js-product-select'), productsUrl, categoryId,
-            itemEl.dataset.productId || '', itemEl.dataset.productLabel || ''
+            itemEl.dataset.productId || '', itemEl.dataset.productLabel || '',
+            function () { updateProductThumb(itemEl); }
         );
         loadSelectOptions(
             itemEl.querySelector('.js-supplier-select'), suppliersUrl, categoryId,
@@ -791,60 +1193,156 @@ document.addEventListener('DOMContentLoaded', function () {
         );
 
         const unitSelect = itemEl.querySelector('.js-unit-select');
-        unitSelect.dataset.selected = itemEl.dataset.unit || '';
+        if (unitSelect) unitSelect.dataset.selected = itemEl.dataset.unit || '';
 
         const meta = itemFormatMeta(itemEl);
         populateItemUnits(itemEl, meta ? meta.units : []);
         applyColumnsToItem(itemEl, meta);
 
-        if (itemEl.querySelectorAll('.inquiry-colour').length === 0) {
+        if (itemQueryAll(itemEl, '.inquiry-colour').length === 0) {
             addColour(itemEl);
+            syncQuickToBreakdown(itemEl);
+        }
+
+        // Sync FOB type select from hidden — falls back to this category
+        // block's own default FOB type for a brand-new row so staff don't
+        // have to repeat the same selection on every single line ("isn't
+        // this repeating").
+        const fobHidden = itemEl.querySelector('[data-field="fob_value_id"]');
+        const fobSelect = itemQuery(itemEl, '.js-fob-value-select');
+        if (fobHidden && fobSelect) {
+            let fobValue = fobHidden.value || '';
+            if (! fobValue) {
+                const groupFobSelect = group?.querySelector('.js-group-fob');
+                if (groupFobSelect && groupFobSelect.value) fobValue = groupFobSelect.value;
+            }
+            fobSelect.value = fobValue;
+            fobHidden.value = fobValue;
+        }
+
+        // Default BOM cost from the inquiry header — only for a brand-new
+        // row with nothing chosen yet; never overrides a saved/custom value.
+        const bomCostHidden = itemEl.querySelector('.js-bom-cost');
+        if (bomCostHidden && ! bomCostHidden.value && defaultBomTemplateEl && defaultBomTemplateEl.value) {
+            applyBomTemplate(itemEl, defaultBomTemplateEl.value);
         }
 
         recalcItem(itemEl);
+        syncBreakdownToQuick(itemEl);
     }
 
-    document.getElementById('add-item').addEventListener('click', function () {
+    function initGroup(groupEl) {
+        if (! groupEl.querySelector('.js-group-category').value && categorySelect.value) {
+            groupEl.querySelector('.js-group-category').value = categorySelect.value;
+        }
+        if (! groupEl.querySelector('.js-group-format').value && formatSelect.value) {
+            groupEl.querySelector('.js-group-format').value = formatSelect.value;
+        }
+        filterGroupFormatOptions(groupEl, false);
+        syncGroupMetaToRows(groupEl);
+
+        const rows = groupEl.querySelector('.js-group-rows');
+        if (rows && rows.querySelectorAll('[data-item]').length === 0) {
+            addRowToGroup(groupEl);
+        } else {
+            rows.querySelectorAll('[data-item]').forEach(initItem);
+        }
+    }
+
+    function addRowToGroup(groupEl) {
         const node = itemTemplate.content.cloneNode(true);
+        const rows = groupEl.querySelector('.js-group-rows');
+        rows.appendChild(node);
+        const items = rows.querySelectorAll('[data-item]');
+        const last = items[items.length - 1];
+        syncGroupMetaToRows(groupEl);
+        initItem(last);
+        renumberItems();
+        return last;
+    }
+
+    document.getElementById('add-item-group').addEventListener('click', function () {
+        const node = groupTemplate.content.cloneNode(true);
         itemsWrap.appendChild(node);
-        const itemEl = itemsWrap.lastElementChild;
-        initItem(itemEl);
+        const groupEl = itemsWrap.lastElementChild;
+        initGroup(groupEl);
         renumberItems();
     });
 
-    // Delegated: covers rows rendered by Blade on load and rows added later.
     itemsWrap.addEventListener('click', function (e) {
+        if (e.target.closest('.js-add-group-row')) {
+            addRowToGroup(e.target.closest('[data-item-group]'));
+            return;
+        }
+        if (e.target.closest('.js-remove-group')) {
+            const groups = itemsWrap.querySelectorAll('[data-item-group]');
+            if (groups.length <= 1) {
+                const group = e.target.closest('[data-item-group]');
+                group.querySelector('.js-group-rows').innerHTML = '';
+                addRowToGroup(group);
+                return;
+            }
+            e.target.closest('[data-item-group]').remove();
+            renumberItems();
+            return;
+        }
         if (e.target.closest('.js-remove-item')) {
-            e.target.closest('.inquiry-item').remove();
+            const itemEl = itemFromEventTarget(e.target);
+            const costing = itemCostingRow(itemEl);
+            const group = itemEl.closest('[data-item-group]');
+            itemEl.remove();
+            if (costing) costing.remove();
+            if (group && group.querySelectorAll('[data-item]').length === 0) {
+                addRowToGroup(group);
+            }
             renumberItems();
             return;
         }
         if (e.target.closest('.js-toggle-costing')) {
-            const itemEl = e.target.closest('.inquiry-item');
-            const panel = itemEl.querySelector('.costing-panel');
-            const toggle = itemEl.querySelector('.js-toggle-costing');
-            const isHidden = panel.classList.toggle('d-none');
+            const itemEl = itemFromEventTarget(e.target);
+            const costing = itemCostingRow(itemEl);
+            const toggle = e.target.closest('.js-toggle-costing');
+            if (! costing) return;
+            const isHidden = costing.classList.toggle('d-none');
             toggle.classList.toggle('is-open', ! isHidden);
             toggle.setAttribute('aria-expanded', isHidden ? 'false' : 'true');
             return;
         }
+        if (e.target.closest('.js-toggle-bom-editor')) {
+            const itemEl = itemFromEventTarget(e.target);
+            const editor = itemQuery(itemEl, '.js-bom-editor');
+            if (editor) editor.classList.toggle('d-none');
+            return;
+        }
+        if (e.target.closest('.js-load-default-bom')) {
+            loadDefaultBom(itemFromEventTarget(e.target));
+            return;
+        }
         if (e.target.closest('.js-add-bom')) {
-            const itemEl = e.target.closest('.inquiry-item');
-            itemEl.querySelector('.bom-wrap').appendChild(buildBomRow({ qty: 1, is_custom: true }));
+            const itemEl = itemFromEventTarget(e.target);
+            const wrap = itemQuery(itemEl, '.bom-wrap');
+            if (wrap) wrap.appendChild(buildBomRow({ qty: 1, rate: 0, is_custom: true }));
+            const editor = itemQuery(itemEl, '.js-bom-editor');
+            if (editor) editor.classList.remove('d-none');
+            recalcItem(itemEl);
             return;
         }
         if (e.target.closest('.js-remove-bom')) {
-            e.target.closest('[data-bom-row]')?.remove();
+            const itemEl = itemFromEventTarget(e.target);
+            const row = e.target.closest('[data-bom-row]');
+            if (row) row.remove();
+            if (itemEl) recalcItem(itemEl);
             return;
         }
         if (e.target.closest('.js-add-colour')) {
-            addColour(e.target.closest('.inquiry-item'));
+            addColour(itemFromEventTarget(e.target));
             return;
         }
         if (e.target.closest('.js-remove-colour')) {
-            const itemEl = e.target.closest('.inquiry-item');
+            const itemEl = itemFromEventTarget(e.target);
             e.target.closest('.inquiry-colour').remove();
             recalcItem(itemEl);
+            syncBreakdownToQuick(itemEl);
             return;
         }
         if (e.target.closest('.js-add-size')) {
@@ -852,54 +1350,125 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         if (e.target.closest('.js-remove-size')) {
-            const itemEl = e.target.closest('.inquiry-item');
+            const itemEl = itemFromEventTarget(e.target);
             e.target.closest('.inquiry-size').remove();
             recalcItem(itemEl);
-            return;
+            syncBreakdownToQuick(itemEl);
         }
     });
 
     itemsWrap.addEventListener('input', function (e) {
-        if (e.target.classList.contains('js-size-qty') || e.target.classList.contains('js-price')) {
-            const itemEl = e.target.closest('.inquiry-item');
-            recalcItem(itemEl);
+        const itemEl = itemFromEventTarget(e.target);
+        if (! itemEl) return;
+
+        if (e.target.classList.contains('js-quick-colour') || e.target.classList.contains('js-quick-qty')) {
+            syncQuickToBreakdown(itemEl);
             renderIncentiveEstimate(itemEl);
+            return;
+        }
+        if (e.target.classList.contains('js-desc-mirror')) {
+            const hidden = itemEl.querySelector('[data-field="description"]');
+            if (hidden) hidden.value = e.target.value;
+            return;
+        }
+        if (e.target.classList.contains('js-remarks-mirror')) {
+            const hidden = itemEl.querySelector('[data-field="remarks"]');
+            if (hidden) hidden.value = e.target.value;
+            return;
+        }
+        if (e.target.classList.contains('js-size-qty') || e.target.classList.contains('js-price') || e.target.classList.contains('js-cost-price')
+            || e.target.classList.contains('js-bom-qty') || e.target.classList.contains('js-bom-rate')) {
+            recalcItem(itemEl);
+            if (e.target.classList.contains('js-size-qty')) syncBreakdownToQuick(itemEl);
+            renderIncentiveEstimate(itemEl);
+        }
+        if (e.target.classList.contains('js-colour-name')) {
+            syncBreakdownToQuick(itemEl);
         }
     });
 
-    // Price column header reads "Price / <unit>" — refresh it when the
-    // row's own unit changes, same live label DocumentFormat::priceLabel()
-    // computes server-side for the format's own preview.
-    // Product change defaults Unit from Product Master (export unit first).
     itemsWrap.addEventListener('change', function (e) {
-        if (e.target.classList.contains('js-item-category')) {
-            const itemEl = e.target.closest('.inquiry-item');
-            filterItemFormatOptions(itemEl, true);
-            refreshItemProductsAndSuppliers(itemEl);
-            const meta = itemFormatMeta(itemEl);
-            populateItemUnits(itemEl, meta ? meta.units : []);
-            applyColumnsToItem(itemEl, meta);
+        if (e.target.classList.contains('js-group-category')) {
+            const group = e.target.closest('[data-item-group]');
+            filterGroupFormatOptions(group, true);
+            syncGroupMetaToRows(group);
+            group.querySelectorAll('[data-item]').forEach(function (itemEl) {
+                refreshItemProductsAndSuppliers(itemEl);
+                const meta = itemFormatMeta(itemEl);
+                populateItemUnits(itemEl, meta ? meta.units : []);
+                applyColumnsToItem(itemEl, meta);
+            });
             return;
         }
-        if (e.target.classList.contains('js-item-format')) {
-            const itemEl = e.target.closest('.inquiry-item');
-            const meta = itemFormatMeta(itemEl);
-            populateItemUnits(itemEl, meta ? meta.units : []);
-            applyColumnsToItem(itemEl, meta);
+        if (e.target.classList.contains('js-group-format')) {
+            const group = e.target.closest('[data-item-group]');
+            syncGroupMetaToRows(group);
+            group.querySelectorAll('[data-item]').forEach(function (itemEl) {
+                const meta = itemFormatMeta(itemEl);
+                populateItemUnits(itemEl, meta ? meta.units : []);
+                applyColumnsToItem(itemEl, meta);
+            });
+            return;
+        }
+        if (e.target.classList.contains('js-group-fob')) {
+            const group = e.target.closest('[data-item-group]');
+            group.querySelectorAll('[data-item]').forEach(function (itemEl) {
+                const hidden = itemEl.querySelector('[data-field="fob_value_id"]');
+                const select = itemQuery(itemEl, '.js-fob-value-select');
+                if (hidden && select && ! hidden.value) {
+                    select.value = e.target.value;
+                    hidden.value = e.target.value;
+                }
+            });
             return;
         }
         if (e.target.classList.contains('js-product-select')) {
-            const itemEl = e.target.closest('.inquiry-item');
+            const itemEl = itemFromEventTarget(e.target);
             applyProductUnit(itemEl);
-            applyProductBom(itemEl);
+            updateProductThumb(itemEl);
             renderIncentiveEstimate(itemEl);
+            recalcItem(itemEl);
+            return;
+        }
+        if (e.target.classList.contains('js-bom-template')) {
+            const itemEl = itemFromEventTarget(e.target);
+            const key = e.target.value;
+            if (key === 'custom') return;
+            applyBomTemplate(itemEl, key);
+            return;
+        }
+        if (e.target.classList.contains('js-supplier-select')) {
+            const itemEl = itemFromEventTarget(e.target);
+            applySupplierCodeToDesign(itemEl, e.target);
+            recalcItem(itemEl);
+            return;
+        }
+        if (e.target.classList.contains('js-fob-value-select')) {
+            const itemEl = itemFromEventTarget(e.target);
+            const hidden = itemEl.querySelector('[data-field="fob_value_id"]');
+            if (hidden) hidden.value = e.target.value;
             return;
         }
         if (e.target.classList.contains('js-unit-select')) {
             e.target.dataset.selected = e.target.value;
-            applyColumnsToItem(e.target.closest('.inquiry-item'), itemFormatMeta(e.target.closest('.inquiry-item')));
+            const itemEl = itemFromEventTarget(e.target);
+            applyColumnsToItem(itemEl, itemFormatMeta(itemEl));
         }
     });
+
+    // "let's put a default BOM cost option here too" — fills any row that
+    // doesn't already have a BOM cost chosen; never overwrites one that does.
+    if (defaultBomTemplateEl) {
+        defaultBomTemplateEl.addEventListener('change', function () {
+            if (! defaultBomTemplateEl.value) return;
+            itemsWrap.querySelectorAll('[data-item]').forEach(function (itemEl) {
+                const bomCostHidden = itemEl.querySelector('.js-bom-cost');
+                if (bomCostHidden && ! bomCostHidden.value) {
+                    applyBomTemplate(itemEl, defaultBomTemplateEl.value);
+                }
+            });
+        });
+    }
 
     /* ---------------------------- Buyer follow-ups ---------------------------- */
 
@@ -942,8 +1511,14 @@ document.addEventListener('DOMContentLoaded', function () {
     form.addEventListener('submit', function () {
         form.querySelectorAll('input[data-generated]').forEach(function (el) { el.remove(); });
 
-        itemsWrap.querySelectorAll(':scope > .inquiry-item').forEach(function (itemEl, i) {
-            const field = (name) => itemEl.querySelector('[data-field="' + name + '"]').value;
+        itemsWrap.querySelectorAll('[data-item]').forEach(syncQuickToBreakdown);
+
+        itemsWrap.querySelectorAll('[data-item]').forEach(function (itemEl, i) {
+            syncGroupMetaToRows(itemEl.closest('[data-item-group]'));
+            const field = function (name) {
+                const el = itemQuery(itemEl, '[data-field="' + name + '"]');
+                return el ? el.value : '';
+            };
 
             appendHidden('items[' + i + '][category_id]', field('category_id'));
             appendHidden('items[' + i + '][document_format_id]', field('document_format_id'));
@@ -955,27 +1530,30 @@ document.addEventListener('DOMContentLoaded', function () {
             appendHidden('items[' + i + '][fob_value_id]', field('fob_value_id'));
             appendHidden('items[' + i + '][price]', field('price'));
             appendHidden('items[' + i + '][cost_price]', field('cost_price'));
+            appendHidden('items[' + i + '][bom_cost]', itemEl.querySelector('.js-bom-cost')?.value || '');
+            appendHidden('items[' + i + '][fob_unit]', itemEl.querySelector('.js-fob-unit')?.value || '');
             appendHidden('items[' + i + '][status]', field('status'));
             appendHidden('items[' + i + '][remarks]', field('remarks'));
 
-            itemEl.querySelectorAll(':scope .colours-wrap > .inquiry-colour').forEach(function (colourEl, j) {
+            itemQueryAll(itemEl, '.inquiry-colour').forEach(function (colourEl, j) {
                 appendHidden('items[' + i + '][colours][' + j + '][colour]', colourEl.querySelector('.js-colour-name').value);
-
                 colourEl.querySelectorAll(':scope .sizes-wrap > .inquiry-size').forEach(function (sizeEl, k) {
                     appendHidden('items[' + i + '][colours][' + j + '][sizes][' + k + '][size]', sizeEl.querySelector('.js-size-label').value);
                     appendHidden('items[' + i + '][colours][' + j + '][sizes][' + k + '][qty]', sizeEl.querySelector('.js-size-qty').value || 0);
                 });
             });
 
-            itemEl.querySelectorAll(':scope .bom-wrap > [data-bom-row]').forEach(function (bomEl, b) {
+            itemQueryAll(itemEl, '[data-bom-row]').forEach(function (bomEl, b) {
                 appendHidden('items[' + i + '][bom][' + b + '][component_name]', bomEl.querySelector('.js-bom-name').value);
+                appendHidden('items[' + i + '][bom][' + b + '][size]', bomEl.querySelector('.js-bom-size')?.value || '');
                 appendHidden('items[' + i + '][bom][' + b + '][qty]', bomEl.querySelector('.js-bom-qty').value || 0);
-                appendHidden('items[' + i + '][bom][' + b + '][unit]', bomEl.querySelector('.js-bom-unit').value);
+                appendHidden('items[' + i + '][bom][' + b + '][rate]', bomEl.querySelector('.js-bom-rate')?.value || '');
+                appendHidden('items[' + i + '][bom][' + b + '][unit]', bomEl.querySelector('.js-bom-unit')?.value || '');
                 appendHidden('items[' + i + '][bom][' + b + '][remarks]', bomEl.querySelector('.js-bom-remarks').value);
                 appendHidden('items[' + i + '][bom][' + b + '][is_custom]', bomEl.dataset.isCustom === '0' ? '0' : '1');
             });
 
-            itemEl.querySelectorAll(':scope .custom-fields-wrap [data-custom-key]').forEach(function (fieldEl) {
+            itemQueryAll(itemEl, '[data-custom-key]').forEach(function (fieldEl) {
                 appendHidden('items[' + i + '][custom][' + fieldEl.dataset.customKey + ']', fieldEl.querySelector('input').value);
             });
         });
@@ -989,23 +1567,25 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* --------------------------------- Init --------------------------------- */
 
-    // false: narrow the option lists to match, but never blank out a value
-    // the record actually has saved just because it was opened.
     applyBuyerCategoryFilter(false);
     applyCategoryFormatFilter(false);
     applyFormatMeta();
-    itemsWrap.querySelectorAll(':scope > .inquiry-item').forEach(initItem);
+    itemsWrap.querySelectorAll('[data-item-group]').forEach(initGroup);
     renumberItems();
 });
 </script>
 @endpush
 
+<template id="tpl-item-group">
+    @include('sales.inquiries._item_group', ['isGroupTemplate' => true, 'groupItems' => []])
+</template>
+
 <template id="tpl-item">
-    @include('sales.inquiries._item_card', ['isTemplate' => true])
+    @include('sales.inquiries._item_row', ['isTemplate' => true])
 </template>
 
 <template id="tpl-colour">
-    <div class="inquiry-colour border rounded p-2 mb-2 bg-body-tertiary" data-colour>
+    <div class="inquiry-colour border rounded p-2 mb-2 bg-body" data-colour>
         <div class="d-flex align-items-center gap-2 mb-2">
             <input type="text" class="form-control form-control-sm js-colour-name" placeholder="Colour" maxlength="60" style="max-width:12rem">
             <span class="badge text-bg-light border js-colour-subtotal ms-auto">Qty 0</span>
@@ -1019,7 +1599,7 @@ document.addEventListener('DOMContentLoaded', function () {
 </template>
 
 <template id="tpl-size">
-    <div class="inquiry-size d-flex align-items-center gap-1 border rounded px-1 py-1 bg-body" data-size style="max-width:12rem">
+    <div class="inquiry-size d-flex align-items-center gap-1 border rounded px-1 py-1 bg-body-tertiary" data-size style="max-width:12rem">
         <input type="text" class="form-control form-control-sm js-size-label border-0" placeholder="Size" maxlength="20" style="width:4.5rem">
         <input type="number" min="0" class="form-control form-control-sm js-size-qty" placeholder="Qty" style="width:4.5rem">
         <button type="button" class="btn btn-sm btn-outline-danger js-remove-size"><i class="bi bi-x"></i></button>
@@ -1027,23 +1607,15 @@ document.addEventListener('DOMContentLoaded', function () {
 </template>
 
 <template id="tpl-bom">
-    <div class="row g-1 align-items-end mb-1 inquiry-bom-row" data-bom-row data-is-custom="1">
-        <div class="col-md-4">
-            <input type="text" class="form-control form-control-sm js-bom-name" placeholder="Component" maxlength="200">
-        </div>
-        <div class="col-md-2">
-            <input type="number" step="0.0001" min="0" class="form-control form-control-sm js-bom-qty" placeholder="Qty/pc" value="1">
-        </div>
-        <div class="col-md-2">
-            <input type="text" class="form-control form-control-sm js-bom-unit" placeholder="Unit" maxlength="20">
-        </div>
-        <div class="col-md-3">
-            <input type="text" class="form-control form-control-sm js-bom-remarks" placeholder="Remarks" maxlength="500">
-        </div>
-        <div class="col-md-1">
-            <button type="button" class="btn btn-sm btn-outline-danger w-100 js-remove-bom"><i class="bi bi-x"></i></button>
-        </div>
-    </div>
+    <tr class="inquiry-bom-row" data-bom-row data-is-custom="1">
+        <td><input type="text" class="form-control form-control-sm js-bom-name" maxlength="200" placeholder="Trim / accessory"></td>
+        <td><input type="text" class="form-control form-control-sm js-bom-size" maxlength="60" placeholder="Size"></td>
+        <td><input type="text" class="form-control form-control-sm js-bom-remarks" maxlength="500" placeholder="Description"></td>
+        <td><input type="number" step="0.0001" min="0" class="form-control form-control-sm js-bom-qty" value="1"></td>
+        <td><input type="number" step="0.0001" min="0" class="form-control form-control-sm js-bom-rate" value="0"></td>
+        <td><input type="text" class="form-control form-control-sm js-bom-total bg-body-tertiary" readonly tabindex="-1"></td>
+        <td><button type="button" class="btn btn-sm btn-outline-danger js-remove-bom"><i class="bi bi-x"></i></button></td>
+    </tr>
 </template>
 
 <template id="tpl-followup">

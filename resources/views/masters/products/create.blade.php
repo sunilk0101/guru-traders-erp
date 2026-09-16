@@ -7,7 +7,7 @@
                 Pre-filled from the source product. Enter a <strong>new Item Code</strong> and adjust Price Band / GST as needed.
             </div>
         @endif
-        <form action="{{ route('masters.products.store') }}" method="POST">
+        <form action="{{ route('masters.products.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
             @include('masters.products._form', ['product' => $product ?? null])
         </form>

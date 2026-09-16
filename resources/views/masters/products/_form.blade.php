@@ -76,6 +76,34 @@
         <x-ui.field name="barcode" label="Barcode" :value="$product?->barcode" horizontal
                     placeholder="Letters and numbers" />
 
+        {{-- Small reference photo — shown as a thumbnail on the Inquiry item
+             table and BOM trims panel so staff can confirm the right product
+             at a glance instead of reading the name off a long dropdown. --}}
+        <div class="row form-line">
+            <label for="image" class="col-sm-4 col-lg-3 col-form-label fw-semibold">Photo</label>
+            <div class="col-sm-8 col-lg-9">
+                <div class="d-flex align-items-center gap-3">
+                    @if($product?->image_url)
+                        <img src="{{ $product->image_url }}" alt="" class="rounded border"
+                             style="width:56px;height:56px;object-fit:cover">
+                    @endif
+                    <div class="flex-grow-1">
+                        <input type="file" id="image" name="image" accept="image/png,image/jpeg,image/webp"
+                               class="form-control @error('image') is-invalid @enderror">
+                        @error('image')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                        <div class="form-text">JPG, PNG or WEBP · up to 2 MB. Optional.</div>
+                        @if($product?->image_url)
+                            <div class="form-check mt-1">
+                                <input type="checkbox" class="form-check-input" id="remove_image"
+                                       name="remove_image" value="1">
+                                <label class="form-check-label small" for="remove_image">Remove current photo</label>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 </x-ui.form-section>
 

@@ -4,10 +4,12 @@ namespace App\Models;
 
 use App\Models\Concerns\Filterable;
 use App\Models\Concerns\HasAuditColumns;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 
 class Product extends Model
 {
@@ -27,6 +29,7 @@ class Product extends Model
         'category_id',
         'item_group_code',
         'name',
+        'image_path',
         'name_on_export_document',
         'barcode',
         'unit_po',
@@ -94,6 +97,12 @@ class Product extends Model
     public function incentive(string $scheme): ?ProductIncentive
     {
         return $this->incentives->firstWhere('scheme', $scheme);
+    }
+
+    /** Full public URL of the product's small reference photo, or null. */
+    protected function imageUrl(): Attribute
+    {
+        return Attribute::get(fn () => $this->image_path ? Storage::disk('public')->url($this->image_path) : null);
     }
 
     /*

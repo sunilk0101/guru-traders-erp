@@ -4,7 +4,9 @@ namespace App\Services\Masters;
 
 use App\Models\Product;
 use App\Models\ProductIncentive;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ProductService
 {
@@ -17,6 +19,8 @@ class ProductService
             $incentives = $data['incentives'] ?? [];
             $bomItems = $data['bom'] ?? [];
             unset($data['incentives'], $data['bom']);
+
+            $data = $this->applyImage($data, null);
 
             $product = Product::create($data);
             $this->syncIncentives($product, $incentives);
@@ -36,12 +40,48 @@ class ProductService
             $bomItems = $data['bom'] ?? [];
             unset($data['incentives'], $data['bom']);
 
+            $data = $this->applyImage($data, $product);
+
             $product->update($data);
             $this->syncIncentives($product, $incentives);
             $this->syncBomItems($product, $bomItems);
 
             return $product->refresh();
         });
+    }
+
+    /**
+     * Turns the form's 'image' upload (and 'remove_image' checkbox) into the
+     * 'image_path' column, storing/deleting the file on the public disk the
+     * same way DocumentFormatService does for order-format reference images.
+     * Same 'products' directory served through the existing storage:link.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function applyImage(array $data, ?Product $existing): array
+    {
+        $removeRequested = (bool) ($data['remove_image'] ?? false);
+        $upload = $data['image'] ?? null;
+        unset($data['image'], $data['remove_image']);
+
+        if ($upload instanceof UploadedFile) {
+            if ($existing?->image_path) {
+                Storage::disk('public')->delete($existing->image_path);
+            }
+            $data['image_path'] = $upload->store('products', 'public');
+
+            return $data;
+        }
+
+        if ($removeRequested) {
+            if ($existing?->image_path) {
+                Storage::disk('public')->delete($existing->image_path);
+            }
+            $data['image_path'] = null;
+        }
+
+        return $data;
     }
 
     /**

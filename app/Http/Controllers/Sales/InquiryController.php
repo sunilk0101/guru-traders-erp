@@ -13,6 +13,7 @@ use App\Models\DocumentFormat;
 use App\Models\FobValue;
 use App\Models\Inquiry;
 use App\Models\InquirySource;
+use App\Models\Markup;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Exports\InquiryExport;
@@ -202,33 +203,50 @@ class InquiryController extends Controller implements HasMiddleware
         // item row can default Unit from Product Master — Unit Master was
         // cancelled, so Product is the only authoritative source beyond the
         // Order Format's own unit chips.
+        //
+        // Ordered and labelled by Item Group Code first, not Product Name —
+        // "the reason for the numbers is so it can be easily found. need the
+        // number series to be first for keyword search" (09-Sep call). Some
+        // products were imported with the code already typed into the name
+        // (e.g. name "COTTON LADIES KURTI FREE (461AA)", code "461AA"), so the
+        // trailing "(CODE)" is stripped from the name before the code is
+        // prepended — otherwise it would show up twice.
         $products = Product::active()
             ->with(['bomItems', 'incentives'])
             ->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->integer('category_id')))
-            ->orderBy('name')
-            ->get(['id', 'name', 'item_group_code', 'unit_po', 'unit_export'])
-            ->map(fn (Product $product) => [
-                'id'          => $product->id,
-                'text'        => $product->item_group_code ? "{$product->name} ({$product->item_group_code})" : $product->name,
-                'unit_po'     => $product->unit_po,
-                'unit_export' => $product->unit_export,
-                'bom'         => $product->bomItems->map(fn ($line) => [
-                    'component_name' => $line->component_name,
-                    'qty'            => (float) $line->qty,
-                    'unit'           => $line->unit,
-                    'is_custom'      => (bool) $line->is_custom,
-                    'remarks'        => $line->remarks,
-                ])->values(),
-                // Rate % × FOB vs Cap × PCS → lower (same as ProductIncentive::claimAmount).
-                'incentives'  => $product->incentives->map(fn ($row) => [
-                    'scheme'      => $row->scheme,
-                    'label'       => $row->schemeLabel(),
-                    'percent_1'   => (float) ($row->percent_1 ?? 0),
-                    'percent_2'   => (float) ($row->percent_2 ?? 0),
-                    'cap_value'   => $row->cap_value !== null ? (float) $row->cap_value : null,
-                    'cap_value_2' => $row->cap_value_2 !== null ? (float) $row->cap_value_2 : null,
-                ])->values(),
-            ]);
+            ->orderBy('item_group_code')
+            ->get(['id', 'name', 'item_group_code', 'image_path', 'unit_po', 'unit_export'])
+            ->map(function (Product $product) {
+                $name = trim((string) preg_replace(
+                    '/\s*\('.preg_quote((string) $product->item_group_code, '/').'\)\s*$/i',
+                    '',
+                    $product->name
+                ));
+
+                return [
+                    'id'          => $product->id,
+                    'text'        => $product->item_group_code ? "{$product->item_group_code} — {$name}" : $name,
+                    'image_url'   => $product->image_url,
+                    'unit_po'     => $product->unit_po,
+                    'unit_export' => $product->unit_export,
+                    'bom'         => $product->bomItems->map(fn ($line) => [
+                        'component_name' => $line->component_name,
+                        'qty'            => (float) $line->qty,
+                        'unit'           => $line->unit,
+                        'is_custom'      => (bool) $line->is_custom,
+                        'remarks'        => $line->remarks,
+                    ])->values(),
+                    // Rate % × FOB vs Cap × PCS → lower (same as ProductIncentive::claimAmount).
+                    'incentives'  => $product->incentives->map(fn ($row) => [
+                        'scheme'      => $row->scheme,
+                        'label'       => $row->schemeLabel(),
+                        'percent_1'   => (float) ($row->percent_1 ?? 0),
+                        'percent_2'   => (float) ($row->percent_2 ?? 0),
+                        'cap_value'   => $row->cap_value !== null ? (float) $row->cap_value : null,
+                        'cap_value_2' => $row->cap_value_2 !== null ? (float) $row->cap_value_2 : null,
+                    ])->values(),
+                ];
+            });
 
         return response()->json($products);
     }
@@ -247,9 +265,56 @@ class InquiryController extends Controller implements HasMiddleware
             )
             ->orderBy('company_name')
             ->get()
-            ->map(fn (Supplier $supplier) => ['id' => $supplier->id, 'text' => $supplier->label]);
+            // display_code travels with each option so the item row can seed
+            // Design no / name with it the moment a supplier is picked —
+            // "the code should come immediately in the design number once I
+            // choose the supplier ... AJC- (here I'll type the design number)".
+            ->map(fn (Supplier $supplier) => [
+                'id'   => $supplier->id,
+                'text' => $supplier->label,
+                'code' => $supplier->display_code,
+            ]);
 
         return response()->json($suppliers);
+    }
+
+    /**
+     * Returns only the FOB unit figure for a cost — Markup % never leaves the
+     * server (staff must not see margins on the Inquiry screen).
+     */
+    public function quoteFob(Request $request): JsonResponse
+    {
+        $finalCost = (float) $request->input('final_cost', 0);
+        $buyerId = $request->integer('buyer_id');
+        $supplierId = $request->integer('supplier_id');
+        $exchangeRate = (float) $request->input('exchange_rate', 0);
+        $currencyId = $request->integer('currency_id');
+
+        if ($finalCost <= 0) {
+            return response()->json(['fob_unit' => 0]);
+        }
+
+        $fobInr = $finalCost;
+        if ($buyerId && $supplierId) {
+            $markup = Markup::query()
+                ->where('buyer_id', $buyerId)
+                ->where('supplier_id', $supplierId)
+                ->where('status', 'active')
+                ->first();
+            if ($markup) {
+                $fobInr = $markup->clientPrice($finalCost);
+            }
+        }
+
+        $iso = $currencyId
+            ? Currency::query()->whereKey($currencyId)->value('iso_code')
+            : 'INR';
+
+        if ($exchangeRate > 0 && $iso && strtoupper((string) $iso) !== 'INR') {
+            return response()->json(['fob_unit' => round($fobInr / $exchangeRate, 4)]);
+        }
+
+        return response()->json(['fob_unit' => round($fobInr, 4)]);
     }
 
     /**
@@ -299,11 +364,40 @@ class InquiryController extends Controller implements HasMiddleware
             // re-enforce the side, same call already made there.
             'agents' => Agent::active()->ofType('buyer')->orderBy('name')->get()->pluck('label', 'id'),
 
+            // Commission on Inquiry is read-only from Agent Master (first
+            // commission row). Map Agent's fixed → Inquiry's flat.
+            'agentCommissions' => Agent::active()->ofType('buyer')
+                ->with('commissions')
+                ->get()
+                ->mapWithKeys(function (Agent $agent) {
+                    $first = $agent->commissions->first();
+
+                    return [$agent->id => $first ? [
+                        'type'  => $first->commission_type === 'percent' ? 'percent' : 'flat',
+                        'value' => (float) $first->amount,
+                    ] : null];
+                })
+                ->all(),
+
             'formats' => DocumentFormat::active()->with(['units', 'columns', 'categories:id', 'images'])
                 ->orderBy('name')->get(),
 
             'fobValues'  => FobValue::active()->orderBy('name')->pluck('name', 'id'),
             'currencies' => Currency::active()->orderBy('iso_code')->get()->pluck('label', 'id'),
+            'defaultBomLines' => config('inquiry_bom.default_lines', []),
+            'bomTemplates' => collect(config('inquiry_bom.templates', []))->map(function (array $template, string $key) {
+                $lines = $template['lines'] ?? [];
+                $total = round(collect($lines)->sum(
+                    fn ($line) => (float) ($line['qty'] ?? 0) * (float) ($line['rate'] ?? 0)
+                ), 2);
+
+                return [
+                    'key'   => $key,
+                    'name'  => $template['name'] ?? $key,
+                    'total' => $total,
+                    'lines' => $lines,
+                ];
+            })->values(),
 
             'statuses' => Inquiry::STATUSES,
             // Change request #8 — quick-add lookup, replacing the fixed list.

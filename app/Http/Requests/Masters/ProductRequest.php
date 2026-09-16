@@ -61,6 +61,13 @@ abstract class ProductRequest extends FormRequest
             // Sheet: "barcode (needs to have text and number allowed)".
             'barcode'                 => ['nullable', 'string', 'max:60'],
 
+            // Small reference photo shown as a thumbnail on the Inquiry item
+            // table and BOM trims panel — "I need a small image against every
+            // line" (09-Sep call). Optional; existing photo is cleared via
+            // remove_image rather than requiring a fresh upload every save.
+            'image'                   => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'remove_image'            => ['nullable', 'boolean'],
+
             // Typed, not picked — the client cancelled the Unit Master.
             'unit_po'                 => ['nullable', 'string', 'max:20'],
             'unit_export'             => ['nullable', 'string', 'max:20'],
