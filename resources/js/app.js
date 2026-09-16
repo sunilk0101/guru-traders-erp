@@ -32,6 +32,13 @@ window.upgradeSearchableSelect = function (el) {
         allowEmptyOption: true,
         maxOptions: null,
         placeholder: el.dataset.placeholder || 'Search…',
+        // Renders the dropdown panel on <body> instead of right next to the
+        // <select> in the DOM. Without this, a select sitting inside any
+        // scrolling/clipping container (the Inquiry item table's sideways
+        // scroll, a modal, a narrow column) gets its open panel squashed or
+        // cut off by that ancestor's overflow instead of floating cleanly
+        // above the page. tom-select repositions it on scroll/resize itself.
+        dropdownParent: 'body',
     };
 
     // Multi-select (Buyer sheet col D, "allow multiple selection") needs
