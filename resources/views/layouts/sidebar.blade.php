@@ -170,6 +170,14 @@
                             </a>
                         </li>
                     @endcan
+                    @can('trim-accessory.view')
+                        <li class="nav-item">
+                            <a href="{{ route('masters.trim-accessories.index') }}"
+                               class="nav-link {{ request()->routeIs('masters.trim-accessories.*') ? 'active' : '' }}">
+                                <i class="nav-icon bi bi-scissors"></i><p>Trim / Accessories</p>
+                            </a>
+                        </li>
+                    @endcan
                     @can('markup.view')
                         <li class="nav-item">
                             <a href="{{ route('masters.markups.index') }}"

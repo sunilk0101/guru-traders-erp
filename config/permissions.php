@@ -121,6 +121,7 @@ return [
             'jobber'    => ['label' => 'Jobbers'],
             'agent'     => ['label' => 'Agents'],
             'fob-value' => ['label' => 'FOB Values'],
+            'trim-accessory' => ['label' => 'Trim / Accessories'],
             'markup'    => ['label' => 'Markup'],
         ],
 

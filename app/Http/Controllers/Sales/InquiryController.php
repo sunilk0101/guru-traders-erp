@@ -16,6 +16,7 @@ use App\Models\InquirySource;
 use App\Models\Markup;
 use App\Models\Product;
 use App\Models\Supplier;
+use App\Models\TrimAccessory;
 use App\Exports\InquiryExport;
 use App\Services\NumberSeriesService;
 use App\Services\Sales\InquiryService;
@@ -398,6 +399,14 @@ class InquiryController extends Controller implements HasMiddleware
                     'lines' => $lines,
                 ];
             })->values(),
+
+            // "I need a small image against every line which will be added
+            // while making the bom cost ... a separate photo per trim type"
+            // (16-Sep call). name => photo URL, keyed lowercase so the BOM
+            // trims panel can match a typed line name case-insensitively.
+            'trimAccessoriesJs' => TrimAccessory::active()->get(['name', 'image_path'])
+                ->mapWithKeys(fn (TrimAccessory $row) => [strtolower($row->name) => $row->image_url])
+                ->filter(),
 
             'statuses' => Inquiry::STATUSES,
             // Change request #8 — quick-add lookup, replacing the fixed list.

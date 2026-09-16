@@ -217,7 +217,13 @@
                                     $bTotal = is_numeric($bQty) && is_numeric($bRate) ? number_format((float)$bQty * (float)$bRate, 2, '.', '') : '';
                                 @endphp
                                 <tr class="inquiry-bom-row" data-bom-row data-is-custom="{{ $bCustom ? '1' : '0' }}">
-                                    <td><input type="text" class="form-control form-control-sm js-bom-name" maxlength="200" value="{{ $bName }}"></td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <img class="js-trim-thumb rounded border bg-body-tertiary d-none flex-shrink-0" alt=""
+                                                 style="width:22px;height:22px;object-fit:cover">
+                                            <input type="text" class="form-control form-control-sm js-bom-name" maxlength="200" value="{{ $bName }}">
+                                        </div>
+                                    </td>
                                     <td><input type="text" class="form-control form-control-sm js-bom-size" maxlength="60" value="{{ $bSize }}"></td>
                                     <td><input type="text" class="form-control form-control-sm js-bom-remarks" maxlength="500" value="{{ $bRemarks }}"></td>
                                     <td><input type="number" step="0.0001" min="0" class="form-control form-control-sm js-bom-qty" value="{{ $bQty }}"></td>

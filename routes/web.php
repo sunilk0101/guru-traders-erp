@@ -10,6 +10,7 @@ use App\Http\Controllers\Masters\JobberController;
 use App\Http\Controllers\Masters\MarkupController;
 use App\Http\Controllers\Masters\ProductController;
 use App\Http\Controllers\Masters\SupplierController;
+use App\Http\Controllers\Masters\TrimAccessoryController;
 use App\Http\Controllers\Administration\CompanyProfileController;
 use App\Http\Controllers\Export\ExportDocumentChecklistController;
 use App\Http\Controllers\Export\ExportDocumentController;
@@ -147,6 +148,10 @@ Route::middleware('auth')->group(function () {
             ->name('fob-values.toggle-status');
         Route::resource('fob-values', FobValueController::class);
 
+        Route::patch('trim-accessories/{trimAccessory}/toggle-status', [TrimAccessoryController::class, 'toggleStatus'])
+            ->name('trim-accessories.toggle-status');
+        Route::resource('trim-accessories', TrimAccessoryController::class);
+
         /*
          * Order Formats. Bound as {format} rather than {documentFormat} — the
          * client calls these order formats, and the URL is the one place that
@@ -190,6 +195,8 @@ Route::middleware('auth')->group(function () {
             ->name('inquiries.products');
         Route::get('inquiries/suppliers', [InquiryController::class, 'suppliers'])
             ->name('inquiries.suppliers');
+        Route::get('inquiries/quote-fob', [InquiryController::class, 'quoteFob'])
+            ->name('inquiries.quote-fob');
         // Quick-add for the Source field — same shape as the Buyer form's
         // designations/payment-terms quick-add routes.
         Route::post('inquiries/sources', [InquiryController::class, 'storeSource'])
@@ -227,6 +234,12 @@ Route::middleware('auth')->group(function () {
     Route::prefix('procurement')->name('procurement.')->group(function () {
         Route::resource('purchase-orders', PurchaseOrderController::class)
             ->parameters(['purchase-orders' => 'purchaseOrder']);
+        Route::get('purchase-orders/{purchaseOrder}/reply-form.pdf', [PurchaseOrderController::class, 'replyFormPdf'])
+            ->name('purchase-orders.reply-form');
+        Route::post('purchase-orders/{purchaseOrder}/ocr-extract', [PurchaseOrderController::class, 'ocrExtract'])
+            ->name('purchase-orders.ocr-extract');
+        Route::post('purchase-orders/{purchaseOrder}/ocr-apply', [PurchaseOrderController::class, 'ocrApply'])
+            ->name('purchase-orders.ocr-apply');
 
         Route::get('inward-entries/po-details/{purchaseOrder}', [InwardEntryController::class, 'poDetails'])
             ->name('inward-entries.po-details');
@@ -248,9 +261,27 @@ Route::middleware('auth')->group(function () {
         Route::get('packing', [PackingController::class, 'index'])
             ->middleware('permission:packing.view')
             ->name('packing.index');
+        Route::get('packing/template.xlsx', [PackingController::class, 'templateExcel'])
+            ->middleware('permission:packing.view')
+            ->name('packing.template-excel');
+        Route::get('packing/template.pdf', [PackingController::class, 'templatePdf'])
+            ->middleware('permission:packing.view')
+            ->name('packing.template-pdf');
         Route::get('packing/{document}', [PackingController::class, 'show'])
             ->middleware('permission:packing.view')
             ->name('packing.show');
+        Route::get('packing/{document}/template.xlsx', [PackingController::class, 'templateExcelForDocument'])
+            ->middleware('permission:packing.view')
+            ->name('packing.template-excel-document');
+        Route::get('packing/{document}/template.pdf', [PackingController::class, 'templatePdfForDocument'])
+            ->middleware('permission:packing.view')
+            ->name('packing.template-pdf-document');
+        Route::post('packing/{document}/import-preview', [PackingController::class, 'importPreview'])
+            ->middleware('permission:export-document.edit')
+            ->name('packing.import-preview');
+        Route::post('packing/{document}/import-apply', [PackingController::class, 'importApply'])
+            ->middleware('permission:export-document.edit')
+            ->name('packing.import-apply');
 
         Route::get('ocr', [ExportDocumentOcrController::class, 'index'])->name('ocr.index');
         Route::post('ocr/extract', [ExportDocumentOcrController::class, 'extract'])->name('ocr.extract');

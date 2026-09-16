@@ -348,6 +348,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const quoteFobUrl  = "{{ route('sales.inquiries.quote-fob') }}";
     const defaultBomLines = @json($defaultBomLines ?? []);
     const bomTemplates = @json(($bomTemplates ?? collect())->values());
+    const trimAccessories = @json($trimAccessoriesJs ?? []);
 
     const buyerSelect    = document.getElementById('buyer_id');
     const categorySelect = document.getElementById('category_id');
@@ -699,6 +700,32 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     /**
+     * "I need a small image against every line which will be added while
+     * making the bom cost. I need it to show up here as well" — matches a
+     * BOM trims row's typed name (Main Label, Zip, ...) against the Trim /
+     * Accessory catalog (case-insensitive) and shows its reference photo.
+     */
+    function trimThumbUrl(name) {
+        const key = (name || '').trim().toLowerCase();
+        return key && trimAccessories && trimAccessories[key] ? trimAccessories[key] : '';
+    }
+
+    function updateTrimThumb(rowEl) {
+        if (! rowEl) return;
+        const nameInput = rowEl.querySelector('.js-bom-name');
+        const thumb = rowEl.querySelector('.js-trim-thumb');
+        if (! nameInput || ! thumb) return;
+        const url = trimThumbUrl(nameInput.value);
+        if (url) {
+            thumb.src = url;
+            thumb.classList.remove('d-none');
+        } else {
+            thumb.src = '';
+            thumb.classList.add('d-none');
+        }
+    }
+
+    /**
      * "the code should come immediately in the design number once I choose
      * the supplier ... AJC- (here I'll type the design number)". Seeds the
      * supplier's display code as a prefix the moment a supplier is picked,
@@ -839,6 +866,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const q = parseFloat(row.querySelector('.js-bom-qty').value) || 0;
         const r = parseFloat(row.querySelector('.js-bom-rate').value) || 0;
         row.querySelector('.js-bom-total').value = (q * r) ? (q * r).toFixed(2) : '';
+        updateTrimThumb(row);
         return node;
     }
 
@@ -1227,6 +1255,8 @@ document.addEventListener('DOMContentLoaded', function () {
             applyBomTemplate(itemEl, defaultBomTemplateEl.value);
         }
 
+        itemQueryAll(itemEl, '[data-bom-row]').forEach(updateTrimThumb);
+
         recalcItem(itemEl);
         syncBreakdownToQuick(itemEl);
     }
@@ -1384,6 +1414,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (e.target.classList.contains('js-colour-name')) {
             syncBreakdownToQuick(itemEl);
+        }
+        if (e.target.classList.contains('js-bom-name')) {
+            updateTrimThumb(e.target.closest('[data-bom-row]'));
         }
     });
 
@@ -1608,7 +1641,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <template id="tpl-bom">
     <tr class="inquiry-bom-row" data-bom-row data-is-custom="1">
-        <td><input type="text" class="form-control form-control-sm js-bom-name" maxlength="200" placeholder="Trim / accessory"></td>
+        <td>
+            <div class="d-flex align-items-center gap-1">
+                <img class="js-trim-thumb rounded border bg-body-tertiary d-none flex-shrink-0" alt=""
+                     style="width:22px;height:22px;object-fit:cover">
+                <input type="text" class="form-control form-control-sm js-bom-name" maxlength="200" placeholder="Trim / accessory">
+            </div>
+        </td>
         <td><input type="text" class="form-control form-control-sm js-bom-size" maxlength="60" placeholder="Size"></td>
         <td><input type="text" class="form-control form-control-sm js-bom-remarks" maxlength="500" placeholder="Description"></td>
         <td><input type="number" step="0.0001" min="0" class="form-control form-control-sm js-bom-qty" value="1"></td>
