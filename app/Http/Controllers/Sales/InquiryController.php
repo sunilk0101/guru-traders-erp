@@ -12,6 +12,7 @@ use App\Models\Currency;
 use App\Models\DocumentFormat;
 use App\Models\FobValue;
 use App\Models\Inquiry;
+use App\Models\InquiryFollowUp;
 use App\Models\InquirySource;
 use App\Models\Markup;
 use App\Models\Product;
@@ -55,7 +56,7 @@ class InquiryController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware('permission:inquiry.view', only: ['index', 'show', 'pdf', 'xlsx']),
+            new Middleware('permission:inquiry.view', only: ['index', 'show', 'pdf', 'xlsx', 'followUps']),
             new Middleware('permission:inquiry.create', only: ['create', 'store']),
             new Middleware('permission:inquiry.edit', only: ['edit', 'update']),
             new Middleware('permission:inquiry.delete', only: ['destroy']),
@@ -100,6 +101,65 @@ class InquiryController extends Controller implements HasMiddleware
             'statuses'  => Inquiry::STATUSES,
             'filters'   => $request->only('search', 'status', 'buyer_id', 'sort', 'direction'),
             'stats'     => $stats,
+        ]);
+    }
+
+    /**
+     * Every dated follow-up comment across every inquiry, newest first, with
+     * an optional Category and Buyer filter and a date range. The "date
+     * wise" grouping is done in PHP on the already-paginated page (not with
+     * a DB GROUP BY), so a page still shows exactly $perPage individual
+     * entries and pagination stays simple - the grouping only changes how
+     * those entries are broken into date headings in the view.
+     */
+    public function followUps(Request $request): View
+    {
+        $perPage = 30;
+
+        $followUps = InquiryFollowUp::query()
+            ->with([
+                'inquiry:id,inquiry_no,buyer_id,category_id',
+                'inquiry.buyer:id,company_name,display_code',
+                'inquiry.category:id,name',
+                'creator:id,name',
+            ])
+            ->when(
+                $request->filled('category_id'),
+                fn ($q) => $q->whereHas(
+                    'inquiry',
+                    fn ($iq) => $iq->where('category_id', $request->integer('category_id'))
+                )
+            )
+            ->when(
+                $request->filled('buyer_id'),
+                fn ($q) => $q->whereHas(
+                    'inquiry',
+                    fn ($iq) => $iq->where('buyer_id', $request->integer('buyer_id'))
+                )
+            )
+            ->when(
+                $request->filled('from'),
+                fn ($q) => $q->whereDate('follow_up_date', '>=', $request->date('from'))
+            )
+            ->when(
+                $request->filled('to'),
+                fn ($q) => $q->whereDate('follow_up_date', '<=', $request->date('to'))
+            )
+            ->orderByDesc('follow_up_date')
+            ->orderByDesc('id')
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $grouped = $followUps->getCollection()->groupBy(
+            fn (InquiryFollowUp $followUp) => $followUp->follow_up_date->format('Y-m-d')
+        );
+
+        return view('sales.inquiries.follow-ups', [
+            'followUps'  => $followUps,
+            'grouped'    => $grouped,
+            'categories' => Category::active()->orderBy('name')->get()->pluck('name', 'id'),
+            'buyers'     => Buyer::active()->orderBy('company_name')->get()->pluck('label', 'id'),
+            'filters'    => $request->only('category_id', 'buyer_id', 'from', 'to'),
         ]);
     }
 

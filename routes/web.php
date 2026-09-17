@@ -197,6 +197,14 @@ Route::middleware('auth')->group(function () {
             ->name('inquiries.suppliers');
         Route::get('inquiries/quote-fob', [InquiryController::class, 'quoteFob'])
             ->name('inquiries.quote-fob');
+        // Cross-inquiry follow-up report: every dated follow-up comment across
+        // every inquiry, groupable by date and filterable by Category — a
+        // read view over the same inquiry_follow_ups rows the per-inquiry
+        // "Buyer Follow-up" panel already shows. Must be registered ahead of
+        // Route::resource('inquiries', ...) below, otherwise its GET
+        // inquiries/{inquiry} show route would swallow "follow-ups" as an id.
+        Route::get('inquiries/follow-ups', [InquiryController::class, 'followUps'])
+            ->name('inquiries.follow-ups');
         // Quick-add for the Source field — same shape as the Buyer form's
         // designations/payment-terms quick-add routes.
         Route::post('inquiries/sources', [InquiryController::class, 'storeSource'])

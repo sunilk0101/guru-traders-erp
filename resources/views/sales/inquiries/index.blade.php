@@ -3,6 +3,11 @@
 
     <x-ui.card title="Inquiries" variant="primary">
         <x-slot name="actions">
+            @can('inquiry.view')
+                <a href="{{ route('sales.inquiries.follow-ups') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-calendar2-check me-1"></i> Follow-ups
+                </a>
+            @endcan
             @can('inquiry.create')
                 <a href="{{ route('sales.inquiries.create') }}" class="btn btn-sm btn-primary">
                     <i class="bi bi-plus-lg me-1"></i> New Inquiry
