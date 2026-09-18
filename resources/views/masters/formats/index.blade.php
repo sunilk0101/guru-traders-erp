@@ -25,7 +25,7 @@
                 </select>
             </div>
             <div class="col-md-4 d-flex gap-2">
-                <button class="btn btn-sm btn-secondary"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <button class="btn btn-sm btn-secondary text-nowrap d-inline-flex align-items-center flex-shrink-0"><i class="bi bi-funnel me-1"></i>Filter</button>
                 <a href="{{ route('masters.formats.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
             </div>
         </form>
@@ -41,7 +41,7 @@
                         <th style="width:110px" class="text-center">Categories</th>
                         <th style="width:90px" class="text-center">Images</th>
                         <th style="width:110px">Status</th>
-                        <th class="text-end" style="width:150px">Actions</th>
+                        <th class="text-end sticky-actions-col" style="width:150px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -66,7 +66,8 @@
                             <td class="text-center text-body-secondary">{{ $format->images_count }}</td>
                             <td>
                                 @can('po-format.edit')
-                                    <form action="{{ route('masters.formats.toggle-status', $format) }}" method="POST">
+                                    <form action="{{ route('masters.formats.toggle-status', $format) }}" method="POST" class="js-confirm"
+                                          data-confirm="{{ ($format->status === 'active' ? 'Deactivate' : 'Activate') . ' order format "' . $format->name . '"?' }}">
                                         @csrf @method('PATCH')
                                         <button type="submit" class="btn btn-sm p-0 border-0 bg-transparent"
                                                 data-bs-toggle="tooltip" title="Click to toggle">
@@ -77,7 +78,7 @@
                                     <x-ui.status-badge :status="$format->status === 'active'" />
                                 @endcan
                             </td>
-                            <td class="text-end">
+                            <td class="text-end sticky-actions-col">
                                 <div class="btn-group btn-group-sm">
                                     @can('po-format.view')
                                         <a href="{{ route('masters.formats.show', $format) }}"
@@ -92,9 +93,15 @@
                                         </a>
                                     @endcan
                                     @can('po-format.delete')
+                                        {{-- L-04: DocumentFormatService::canDelete() already blocks this
+                                             server-side when categories reference the format — the button
+                                             just never reflected that in the UI the way Categories' own
+                                             delete button does (:disabled based on products_count). --}}
                                         <x-ui.delete-form
                                             :action="route('masters.formats.destroy', $format)"
-                                            :confirm="'Delete order format &quot;'.$format->name.'&quot;?'" />
+                                            :confirm='"Delete order format \"" . $format->name . "\"?"'
+                                            :disabled="$format->categories_count > 0"
+                                            disabled-reason="In use by categories" />
                                     @endcan
                                 </div>
                             </td>

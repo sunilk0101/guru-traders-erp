@@ -65,7 +65,18 @@
     @endif
 
     @php
-        $columns  = $inquiry->format?->printColumns() ?? collect();
+        // H-05: this document (PDF download and the XLSX export, which
+        // renders this same view through PhpSpreadsheet's HTML reader) goes
+        // straight to the buyer. 'Cost' never appears here because it isn't
+        // one of the configurable format columns at all — but 'supplier' is,
+        // and an Order Format that enables it was printing the internal
+        // supplier's name/code (e.g. "A J Creation (AJC)") on the buyer's
+        // copy, disclosing who manufactures each line and the trading
+        // house's sourcing/margin. Always excluded here; there is no
+        // internal-facing variant of this document to preserve it in.
+        $columns  = ($inquiry->format?->printColumns() ?? collect())
+            ->reject(fn ($column) => $column->key === 'supplier')
+            ->values();
         $sizeTags = $columns->firstWhere('key', 'size')?->sub_columns ?? [];
         $firstUnit = $inquiry->items->first()?->unit;
     @endphp

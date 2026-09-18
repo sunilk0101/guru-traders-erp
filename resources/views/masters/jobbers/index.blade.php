@@ -45,7 +45,7 @@
             </div>
 
             <div class="col-md-2 d-flex gap-2">
-                <button class="btn btn-sm btn-secondary"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <button class="btn btn-sm btn-secondary text-nowrap d-inline-flex align-items-center flex-shrink-0"><i class="bi bi-funnel me-1"></i>Filter</button>
                 <a href="{{ route('masters.jobbers.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
             </div>
         </form>
@@ -98,7 +98,8 @@
                             <td class="text-center text-body-secondary">{{ $jobber->categories_count }}</td>
                             <td>
                                 @if(auth()->user()?->can('jobber.edit') || auth()->user()?->can('supplier.edit'))
-                                    <form action="{{ route('masters.jobbers.toggle-status', $jobber) }}" method="POST">
+                                    <form action="{{ route('masters.jobbers.toggle-status', $jobber) }}" method="POST" class="js-confirm"
+                                          data-confirm="{{ ($jobber->status === 'active' ? 'Deactivate' : 'Activate') . ' jobber "' . $jobber->company_name . '"?' }}">
                                         @csrf @method('PATCH')
                                         <button type="submit" class="btn btn-sm p-0 border-0 bg-transparent"
                                                 data-bs-toggle="tooltip" title="Click to toggle">
@@ -126,7 +127,7 @@
                                     @if(auth()->user()?->can('jobber.delete') || auth()->user()?->can('supplier.delete'))
                                         <x-ui.delete-form
                                             :action="route('masters.jobbers.destroy', $jobber)"
-                                            :confirm="'Delete jobber &quot;'.$jobber->company_name.'&quot;?'" />
+                                            :confirm='"Delete jobber \"" . $jobber->company_name . "\"?"' />
                                     @endif
                                 </div>
                             </td>

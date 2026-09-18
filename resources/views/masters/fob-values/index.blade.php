@@ -10,6 +10,21 @@
             @endcan
         </x-slot>
 
+        {{-- L-08: this list and Product's "Price Band" field are separate
+             lookups with no relationship in the data model — Price Band
+             (PriceBand: code/name only, e.g. "AA") just classifies a
+             product, it does not drive any calculation. This entry is what
+             a sales user picks in the "FOB Value" dropdown on an Inquiry
+             item row; the FOB/unit quote next to it is computed from cost +
+             the buyer-supplier Markup rule (see Markup::clientPrice()), not
+             from this record's name — this list only labels which basis the
+             line was quoted under. --}}
+        <p class="text-body-secondary small mb-3">
+            Selected per line on an Inquiry item row ("FOB Value") — it labels which basis a line was quoted
+            under. It's a separate lookup from a product's Price Band; the FOB/unit figure itself is
+            calculated from cost and the buyer-supplier Markup rule, not from this name.
+        </p>
+
         <form method="GET" class="row g-2 align-items-end mb-3">
             <div class="col-md-5">
                 <label class="form-label small text-body-secondary mb-1">Search</label>
@@ -25,7 +40,7 @@
                 </select>
             </div>
             <div class="col-md-4 d-flex gap-2">
-                <button class="btn btn-sm btn-secondary"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <button class="btn btn-sm btn-secondary text-nowrap d-inline-flex align-items-center flex-shrink-0"><i class="bi bi-funnel me-1"></i>Filter</button>
                 <a href="{{ route('masters.fob-values.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
             </div>
         </form>
@@ -49,7 +64,8 @@
                             <td class="text-body-secondary">{{ $fobValue->remarks ?? '—' }}</td>
                             <td>
                                 @can('fob-value.edit')
-                                    <form action="{{ route('masters.fob-values.toggle-status', $fobValue) }}" method="POST">
+                                    <form action="{{ route('masters.fob-values.toggle-status', $fobValue) }}" method="POST" class="js-confirm"
+                                          data-confirm="{{ ($fobValue->status === 'active' ? 'Deactivate' : 'Activate') . ' FOB Value "' . $fobValue->name . '"?' }}">
                                         @csrf @method('PATCH')
                                         <button type="submit" class="btn btn-sm p-0 border-0 bg-transparent"
                                                 data-bs-toggle="tooltip" title="Click to toggle">
@@ -77,7 +93,7 @@
                                     @can('fob-value.delete')
                                         <x-ui.delete-form
                                             :action="route('masters.fob-values.destroy', $fobValue)"
-                                            :confirm="'Delete FOB Value &quot;'.$fobValue->name.'&quot;?'" />
+                                            :confirm='"Delete FOB Value \"" . $fobValue->name . "\"?"' />
                                     @endcan
                                 </div>
                             </td>

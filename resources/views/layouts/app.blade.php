@@ -13,7 +13,13 @@
             })();
         </script>
 
-        <title>{{ config('app.name', 'Guru Traders ERP') }}</title>
+        {{-- M-09: was a hardcoded, identical title on every single page —
+             tabs, history and bookmarks were all indistinguishable, even the
+             500 error page read the same as a working screen. 82 views
+             already pass a clean, human-readable page name through the
+             existing $header slot (see the app-content header further
+             below), so reusing it here needs no per-page changes at all. --}}
+        <title>{{ isset($header) && trim((string) $header) !== '' ? strip_tags($header).' - '.config('app.name', 'Guru Traders ERP') : config('app.name', 'Guru Traders ERP') }}</title>
 
         <!-- Fonts -->
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css" />
@@ -422,6 +428,17 @@
                 background: linear-gradient(to top, #fff 70%, rgba(255,255,255,0));
                 border-top: 1px solid #e9edf2;
             }
+            /* Sticky works on desktop because there's room beside the form fields
+               for it to float without covering anything. On a phone the form is
+               full-width, so a sticky footer sits directly on top of whatever the
+               user just scrolled to (C-05) — drop it back into normal flow instead. */
+            @media (max-width: 767.98px) {
+                .form-actions {
+                    position: static;
+                    background: none;
+                    flex-wrap: wrap;
+                }
+            }
 
             /* Required marker */
             .form-label .req { color: var(--bs-danger); font-weight: 400; }
@@ -684,6 +701,27 @@
             </main>
         </div>
 
+        {{-- M-04: shared confirm dialog for every destructive form.js-confirm
+             action (Delete buttons across every list, "Sync from Config",
+             etc.) — a native window.confirm() looked out of place against
+             the rest of this Bootstrap UI, so one modal replaces it
+             everywhere instead of each screen rolling its own. --}}
+        <div class="modal fade" id="app-confirm-modal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Please confirm</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body" id="app-confirm-modal-body"></div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-danger" id="app-confirm-modal-accept">Confirm</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <script>
         document.addEventListener('DOMContentLoaded', function () {
             // Bootstrap tooltips — used by every list screen's action buttons.
@@ -693,12 +731,52 @@
 
             // One confirm handler for every destructive form, instead of an
             // inline onsubmit="return confirm(...)" repeated on each one.
+            // M-04: was window.confirm() — replaced with the app's own
+            // Bootstrap modal (#app-confirm-modal) so a destructive action's
+            // confirmation looks like the rest of this UI instead of a
+            // native browser dialog. data-confirm is read via .dataset,
+            // which the browser already HTML-decodes for us, so this needs
+            // no manual unescaping of the text set in Blade.
+            var confirmModalEl = document.getElementById('app-confirm-modal');
+            var confirmModal = confirmModalEl ? new bootstrap.Modal(confirmModalEl) : null;
+            var confirmModalBody = document.getElementById('app-confirm-modal-body');
+            var confirmModalAccept = document.getElementById('app-confirm-modal-accept');
+            var pendingConfirmForm = null;
+
             document.querySelectorAll('form.js-confirm').forEach(function (form) {
                 form.addEventListener('submit', function (e) {
-                    if (! window.confirm(form.dataset.confirm || 'Are you sure?')) {
-                        e.preventDefault();
+                    if (form.dataset.confirmed === '1') {
+                        return; // already accepted via the modal below
                     }
+
+                    e.preventDefault();
+
+                    if (! confirmModal) {
+                        // Fallback if Bootstrap's JS somehow failed to load.
+                        if (window.confirm(form.dataset.confirm || 'Are you sure?')) {
+                            form.dataset.confirmed = '1';
+                            form.submit();
+                        }
+                        return;
+                    }
+
+                    pendingConfirmForm = form;
+                    confirmModalBody.textContent = form.dataset.confirm || 'Are you sure?';
+                    confirmModal.show();
                 });
+            });
+
+            confirmModalAccept?.addEventListener('click', function () {
+                confirmModal.hide();
+                if (pendingConfirmForm) {
+                    pendingConfirmForm.dataset.confirmed = '1';
+                    pendingConfirmForm.submit();
+                    pendingConfirmForm = null;
+                }
+            });
+
+            confirmModalEl?.addEventListener('hidden.bs.modal', function () {
+                pendingConfirmForm = null;
             });
 
             // Modules that have no screen yet.
@@ -763,6 +841,39 @@
                 sidebar.addEventListener('collapsed.lte.push-menu', describe);
                 describe();
             }
+
+            // Mobile menu button, in the header (C-05). Deliberately separate from
+            // the desktop collapse/expand toggle above: on a phone the sidebar starts
+            // fully off-canvas (neither .sidebar-collapse nor .sidebar-open), and the
+            // collapse/expand pair above only flips between those two — starting from
+            // the true default it takes a wasted click before it ever shows anything.
+            // This button always means "show it", full stop, and the overlay/nav-link
+            // click always means "hide it".
+            var mobileToggle = document.getElementById('mobileSidebarToggle');
+            var mobileOverlay = document.querySelector('[data-mobile-sidebar-close]');
+
+            var closeMobileSidebar = function () {
+                document.body.classList.remove('sidebar-open');
+            };
+
+            if (mobileToggle) {
+                mobileToggle.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.body.classList.remove('sidebar-collapse');
+                    document.body.classList.add('sidebar-open');
+                });
+            }
+
+            if (mobileOverlay) {
+                mobileOverlay.addEventListener('click', closeMobileSidebar);
+            }
+
+            // Tapping a real link in the drawer should close it behind you, not
+            // leave it open over the next page while it loads.
+            document.querySelectorAll('.app-sidebar .sidebar-menu a.nav-link[href]:not([href="#"])')
+                .forEach(function (link) {
+                    link.addEventListener('click', closeMobileSidebar);
+                });
 
             // Sidebar menu search (/ focuses the box, Spire Zen style)
             var search = document.getElementById('sidebar-search');

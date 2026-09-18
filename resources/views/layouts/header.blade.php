@@ -1,6 +1,16 @@
 <nav class="app-header navbar navbar-expand bg-body">
     <div class="container-fluid">
         <ul class="navbar-nav align-items-center flex-grow-1 min-w-0">
+            {{-- Mobile menu button (C-05). Below lg, .app-sidebar is an off-canvas
+                 drawer with no other way to open it — its own collapse button lives
+                 inside the sidebar itself, which is exactly what's hidden. This one
+                 lives in the always-visible header instead. Wired up in app.blade.php. --}}
+            <li class="nav-item d-lg-none">
+                <button type="button" class="nav-link px-2" id="mobileSidebarToggle"
+                        aria-label="Open menu" title="Open menu">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
+            </li>
             <li class="nav-item flex-grow-1 min-w-0">
                 <nav class="erp-breadcrumb" aria-label="Breadcrumb">
                     @unless (request()->routeIs('dashboard'))
@@ -60,6 +70,11 @@
 </nav>
 
 <script>
+    // M-14: was labelled with the CURRENT theme ('Dark' while dark mode was
+    // already active), which reads as a status label, not a button — a user
+    // has no way to tell from the text alone which way one click will go.
+    // Labelled with the action instead ("Switch to light"), matching how
+    // every other button in this app describes what clicking it will do.
     function updateGuruThemeUI(theme) {
         const sunIcon = document.getElementById('themeIconSun');
         const moonIcon = document.getElementById('themeIconMoon');
@@ -67,11 +82,11 @@
         if (theme === 'dark') {
             sunIcon?.classList.add('d-none');
             moonIcon?.classList.remove('d-none');
-            if (labelText) labelText.textContent = 'Dark';
+            if (labelText) labelText.textContent = 'Switch to light';
         } else {
             sunIcon?.classList.remove('d-none');
             moonIcon?.classList.add('d-none');
-            if (labelText) labelText.textContent = 'Light';
+            if (labelText) labelText.textContent = 'Switch to dark';
         }
     }
 

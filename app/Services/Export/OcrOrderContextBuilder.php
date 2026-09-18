@@ -417,6 +417,18 @@ class OcrOrderContextBuilder
                 'our_cost'        => null,
                 'unit_profit'     => null,
                 'line_profit'     => null,
+                // H-07: 'unit_profit'/'line_profit' above are the Markup
+                // master's *suggested* arithmetic (rate applied to cost) —
+                // they used to be the only profit figure this cockpit
+                // showed, so a line quoted well under cost (e.g. price 0.01
+                // vs cost 300.00) still read as a healthy markup profit
+                // instead of the real loss. These two are always the actual
+                // quoted price minus actual cost, independent of whether a
+                // Markup rule even exists, and are what the view now
+                // headlines as "Profit" — the markup figures are labelled
+                // as a suggestion underneath.
+                'actual_unit_profit' => $costPrice > 0 ? round($listPrice - $costPrice, 2) : null,
+                'actual_line_profit' => $costPrice > 0 ? round(($listPrice - $costPrice) * (float) $item->qty, 2) : null,
                 'note'            => null,
             ];
 
@@ -437,7 +449,7 @@ class OcrOrderContextBuilder
             $row['our_cost'] = $ourCost;
             $row['unit_profit'] = $profit;
             $row['line_profit'] = round($profit * (float) $item->qty, 2);
-            $row['note'] = 'Auto from Markup master';
+            $row['note'] = 'Suggested by Markup master — see Profit for the actual quoted price.';
 
             return $row;
         })->all();

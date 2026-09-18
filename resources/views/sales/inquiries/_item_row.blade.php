@@ -99,6 +99,10 @@
     </td>
     <td data-column="price">
         <input type="number" step="0.01" min="0" class="form-control form-control-sm js-field js-price" data-field="price" value="{{ $iPrice }}" title="Buyer-facing price — prints on the Inquiry document.">
+        {{-- H-07: silently accepting price < cost let a 0.01 price against a
+             300.00 cost save without any signal — flipped on/off from
+             recalcItem() whenever price, cost or BOM cost change. --}}
+        <div class="text-danger small js-margin-warning" style="display:none">Below cost</div>
     </td>
     <td>
         <input type="number" step="0.01" min="0" class="form-control form-control-sm js-field js-cost-price" data-field="cost_price" value="{{ $iCostPrice }}" title="Your trading cost / unit — internal only, not printed on the buyer document.">

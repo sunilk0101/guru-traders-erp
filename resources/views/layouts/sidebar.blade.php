@@ -457,3 +457,9 @@
         </nav>
     </div>
 </aside>
+
+{{-- Tap-outside-to-close backdrop for the mobile off-canvas drawer (C-05).
+     AdminLTE's own CSS shows/animates this once <body> has .sidebar-open below
+     the lg breakpoint; it only needs to exist in the DOM — see layouts/header.blade.php
+     for the button that adds .sidebar-open, and the close handler in app.blade.php. --}}
+<div class="sidebar-overlay d-lg-none" data-mobile-sidebar-close></div>

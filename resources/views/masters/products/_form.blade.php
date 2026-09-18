@@ -42,13 +42,18 @@
                 Item Group Code <span class="req">*</span>
             </label>
             <div class="col-sm-8 col-lg-9">
-                <input type="text" id="item_group_code" name="item_group_code" maxlength="5" required
+                {{-- H-03: the rule said 5 but imported data (370AAB / 370AAA) already
+                     has 6-character codes — maxlength, this hint, and the
+                     FormRequest rule below are all aligned to 6, the real
+                     longest code across all 589 imported products, not a
+                     guess. --}}
+                <input type="text" id="item_group_code" name="item_group_code" maxlength="6" required
                        value="{{ old('item_group_code', $product?->item_group_code) }}"
                        class="form-control text-uppercase js-unique-check @error('item_group_code') is-invalid @enderror"
                        data-field="item_group_code" placeholder="PRD01" autocomplete="off">
                 @error('item_group_code')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                 {{-- Written by JS only once a code has actually been checked. --}}
-                <div class="form-text js-unique-feedback">Up to 5 characters. Must be unique.</div>
+                <div class="form-text js-unique-feedback">Up to 6 characters. Must be unique.</div>
             </div>
         </div>
 
@@ -474,49 +479,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     /* ------------------------------------------------------------------ *
-     * Export incentive toggles — Drawback, RoSCTL, RoDTEP each get an
-     * "Applicable" switch. Off disables and clears that row's inputs; a
-     * blank row already means "not applicable" to the server (see the
-     * section subtitle), so switching off is what actually posts nothing
-     * for that scheme.
-     * ------------------------------------------------------------------ */
-    document.querySelectorAll('.js-incentive-toggle').forEach(function (toggle) {
-        const scheme = toggle.dataset.scheme;
-        const fields = document.querySelectorAll('[data-incentive-field="' + scheme + '"]');
-        const fobBasisId = @json(
-            collect($calculationBases)->search(fn ($label) => str_contains(strtolower((string) $label), 'fob'))
-                ?: collect($calculationBases)->keys()->first()
-        );
-
-        function apply() {
-            fields.forEach(function (field) {
-                field.disabled = ! toggle.checked;
-
-                if (! toggle.checked) {
-                    if (field.tomselect) {
-                        field.tomselect.clear(true);
-                        field.tomselect.disable();
-                    } else {
-                        field.value = '';
-                    }
-                } else if (field.tomselect) {
-                    field.tomselect.enable();
-                    // Default Calculated On → FOB Value (rate side of the claim rule).
-                    if (field.name && field.name.indexOf('[calculation_basis_id]') !== -1 && ! field.value && fobBasisId) {
-                        field.tomselect.setValue(String(fobBasisId), true);
-                    }
-                } else if (field.name && field.name.indexOf('[calculation_basis_id]') !== -1 && ! field.value && fobBasisId) {
-                    field.value = String(fobBasisId);
-                }
-            });
-            renderIncentiveClaims();
-        }
-
-        toggle.addEventListener('change', apply);
-        apply();
-    });
-
-    /* ------------------------------------------------------------------ *
      * Live claim preview: Rate% × FOB vs Cap × PCS → lower.
      * ------------------------------------------------------------------ */
     const sampleFob = document.getElementById('incentive-sample-fob');
@@ -597,6 +559,50 @@ document.addEventListener('DOMContentLoaded', function () {
         el.addEventListener('change', renderIncentiveClaims);
     });
     renderIncentiveClaims();
+
+    /* ------------------------------------------------------------------ *
+     * Export incentive toggles — Drawback, RoSCTL, RoDTEP each get an
+     * "Applicable" switch. Off disables and clears that row's inputs; a
+     * blank row already means "not applicable" to the server (see the
+     * section subtitle), so switching off is what actually posts nothing
+     * for that scheme.
+     * ------------------------------------------------------------------ */
+    document.querySelectorAll('.js-incentive-toggle').forEach(function (toggle) {
+        const scheme = toggle.dataset.scheme;
+        const fields = document.querySelectorAll('[data-incentive-field="' + scheme + '"]');
+        const fobBasisId = @json(
+            collect($calculationBases)->search(fn ($label) => str_contains(strtolower((string) $label), 'fob'))
+                ?: collect($calculationBases)->keys()->first()
+        );
+
+        function apply() {
+            fields.forEach(function (field) {
+                field.disabled = ! toggle.checked;
+
+                if (! toggle.checked) {
+                    if (field.tomselect) {
+                        field.tomselect.clear(true);
+                        field.tomselect.disable();
+                    } else {
+                        field.value = '';
+                    }
+                } else if (field.tomselect) {
+                    field.tomselect.enable();
+                    // Default Calculated On → FOB Value (rate side of the claim rule).
+                    if (field.name && field.name.indexOf('[calculation_basis_id]') !== -1 && ! field.value && fobBasisId) {
+                        field.tomselect.setValue(String(fobBasisId), true);
+                    }
+                } else if (field.name && field.name.indexOf('[calculation_basis_id]') !== -1 && ! field.value && fobBasisId) {
+                    field.value = String(fobBasisId);
+                }
+            });
+            renderIncentiveClaims();
+        }
+
+        toggle.addEventListener('change', apply);
+        apply();
+    });
+
 
     /* ------------------------------------------------------------------ *
      * "Tell me if a code / name is already taken" (sheet cols B and C).

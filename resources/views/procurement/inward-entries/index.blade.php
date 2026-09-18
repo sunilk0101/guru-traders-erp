@@ -44,7 +44,7 @@
                 </select>
             </div>
             <div class="col-md-2 d-flex gap-2">
-                <button class="btn btn-sm btn-secondary"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <button class="btn btn-sm btn-secondary text-nowrap d-inline-flex align-items-center flex-shrink-0"><i class="bi bi-funnel me-1"></i>Filter</button>
                 <a href="{{ route('procurement.inward-entries.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
             </div>
         </form>
@@ -102,7 +102,7 @@
                                     @can('inward-entry.delete')
                                         <x-ui.delete-form
                                             :action="route('procurement.inward-entries.destroy', $inward)"
-                                            :confirm="'Delete Goods Inward &quot;'.$inward->inward_no.'&quot;? This will recalculate the Purchase Order status.'" />
+                                            :confirm='"Delete Goods Inward \"" . $inward->inward_no . "\"? This will recalculate the Purchase Order status."' />
                                     @endcan
                                 </div>
                             </td>

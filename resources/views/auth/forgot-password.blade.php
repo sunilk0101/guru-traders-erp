@@ -35,8 +35,5 @@
     <p class="mt-3 mb-1">
         <a href="{{ route('login') }}">Login</a>
     </p>
-    <p class="mb-0">
-        <a href="{{ route('register') }}" class="text-center">Register a new membership</a>
-    </p>
 
 </x-guest-layout>

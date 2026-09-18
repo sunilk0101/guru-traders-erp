@@ -76,3 +76,45 @@ nav[role="navigation"] svg,
     display: inline-block;
     vertical-align: middle;
 }
+/* M-02: on wide "list" tables (Products, Suppliers, Inquiries, Roles, Order
+   Formats, and the 14-column Inquiry-detail items table), View/Edit/Delete
+   sat off the right edge behind the horizontal scrollbar — reachable, but
+   only after scrolling right past every column, which read as broken.
+   Applied opt-in via .sticky-actions-col on the Actions <th>/<td> rather
+   than to every table's last column app-wide, since several dense
+   costing/editing tables (Inquiry item rows, BOM grids) put buttons in
+   different places and would visually break under a blanket rule. */
+.sticky-actions-col {
+    position: sticky;
+    right: 0;
+    background-color: var(--bs-table-bg, var(--bs-body-bg, #fff));
+    box-shadow: -6px 0 6px -6px rgba(0, 0, 0, 0.15);
+}
+
+thead .sticky-actions-col {
+    background-color: var(--bs-table-striped-bg, var(--bs-tertiary-bg, #f4f6fb));
+    z-index: 2;
+}
+
+tbody .sticky-actions-col {
+    z-index: 1;
+}
+
+.table-hover tbody tr:hover .sticky-actions-col {
+    background-color: var(--bs-table-hover-bg, var(--bs-tertiary-bg, #f4f6fb));
+}
+
+/* M-03: the Export Incentives grid on Add/Edit Product (.incentives-grid,
+   already inside a .table-responsive wrapper) had two separate problems —
+   the <thead> had no theme-aware background, so it rendered plain-white
+   even in dark mode while the rest of the form was dark; and the Rate %
+   number inputs had no min-width, so the 110px column squeezed them down
+   to showing only a couple of characters. */
+.incentives-grid thead th {
+    background-color: var(--bs-tertiary-bg, #f4f6fb);
+    color: var(--bs-body-color);
+}
+
+.incentives-grid input[type="number"] {
+    min-width: 4.5rem;
+}

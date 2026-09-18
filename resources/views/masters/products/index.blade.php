@@ -34,7 +34,7 @@
                 </select>
             </div>
             <div class="col-md-3 d-flex gap-2">
-                <button class="btn btn-sm btn-secondary"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <button class="btn btn-sm btn-secondary text-nowrap d-inline-flex align-items-center flex-shrink-0"><i class="bi bi-funnel me-1"></i>Filter</button>
                 <a href="{{ route('masters.products.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
             </div>
         </form>
@@ -51,7 +51,7 @@
                         <th style="width:80px">Unit</th>
                         <th style="width:80px" class="text-end">GST</th>
                         <th style="width:110px">Status</th>
-                        <th class="text-end" style="width:150px">Actions</th>
+                        <th class="text-end sticky-actions-col" style="width:150px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -81,7 +81,8 @@
                             <td class="text-end text-body-secondary">{{ $product->gstRate?->label ?: '—' }}</td>
                             <td>
                                 @can('product.edit')
-                                    <form action="{{ route('masters.products.toggle-status', $product) }}" method="POST">
+                                    <form action="{{ route('masters.products.toggle-status', $product) }}" method="POST" class="js-confirm"
+                                          data-confirm="{{ ($product->status === 'active' ? 'Deactivate' : 'Activate') . ' product "' . $product->name . '"?' }}">
                                         @csrf @method('PATCH')
                                         <button type="submit" class="btn btn-sm p-0 border-0 bg-transparent"
                                                 data-bs-toggle="tooltip" title="Click to toggle">
@@ -92,7 +93,7 @@
                                     <x-ui.status-badge :status="$product->status === 'active'" />
                                 @endcan
                             </td>
-                            <td class="text-end">
+                            <td class="text-end sticky-actions-col">
                                 <div class="btn-group btn-group-sm">
                                     @can('product.view')
                                         <a href="{{ route('masters.products.show', $product) }}"
@@ -115,7 +116,7 @@
                                     @can('product.delete')
                                         <x-ui.delete-form
                                             :action="route('masters.products.destroy', $product)"
-                                            :confirm="'Delete product &quot;'.$product->name.'&quot;?'" />
+                                            :confirm='"Delete product \"" . $product->name . "\"?"' />
                                     @endcan
                                 </div>
                             </td>

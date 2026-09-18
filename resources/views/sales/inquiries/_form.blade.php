@@ -164,7 +164,10 @@
         <x-ui.select name="currency_id" label="Currency" required horizontal searchable
                      :options="$currencies" :selected="$val('currency_id')" hint="Pre-fills from Buyer Master." />
 
-        <x-ui.field name="exchange_rate" label="Exchange Rate (₹)" type="number" horizontal
+        {{-- H-08: was labelled "Exchange Rate (₹)" as if the rate itself were a
+             rupee amount, when it's a ratio (buyer currency → INR) — renamed
+             to say exactly what it converts to and removed the misleading ₹. --}}
+        <x-ui.field name="exchange_rate" label="Exchange Rate (to INR)" type="number" horizontal
                     :value="$val('exchange_rate')" placeholder="e.g. 88.50" />
 
         <x-ui.field name="expected_shipment_date" label="Expected Shipment Date" type="date" horizontal
@@ -243,13 +246,15 @@
     </button>
 </x-ui.form-section>
 
+{{-- M-06: no longer required here — see InquiryRequest for why. Order
+     Confirmation still requires both once the deal is actually confirmed. --}}
 <x-ui.form-section title="Delivery & Packing Details" icon="bi-box-seam"
-                   subtitle="Pre-fills from Order Format · editable per inquiry. Reference images come from the format (print defaults).">
+                   subtitle="Optional at Inquiry stage; pre-fills from Order Format when it has defaults, editable per inquiry. Required once confirmed to an Order Confirmation. Reference images come from the format (print defaults).">
     <div class="form-stack">
-        <x-ui.textarea name="delivery_details" label="Delivery Details" required horizontal
+        <x-ui.textarea name="delivery_details" label="Delivery Details" horizontal
                        rows="3" :value="$val('delivery_details')" />
 
-        <x-ui.textarea name="packing_details" label="Packing Details" required horizontal
+        <x-ui.textarea name="packing_details" label="Packing Details" horizontal
                        rows="3" :value="$val('packing_details')" />
 
         <div class="row form-line">
@@ -275,8 +280,21 @@
 <div class="form-actions d-flex flex-wrap gap-2 align-items-center">
     <div class="me-auto">
         <label class="form-label small text-body-secondary mb-1">Status</label>
+        @php
+            // H-06: 'Converted to OC' is set by OrderConfirmationService once
+            // an actual Order Confirmation exists for every line (see
+            // InquiryRequest::withValidator, which also rejects it
+            // server-side) — it is not a stage a user picks by hand, or a
+            // brand-new Draft inquiry could be saved as "Converted to OC"
+            // with no OC behind it at all. Only offered here when the
+            // inquiry is already in that state, so its own status line still
+            // renders correctly on the Edit screen.
+            $selectableStatuses = ($isEdit && $inquiry->status === 'converted_to_oc')
+                ? $statuses
+                : collect($statuses)->except('converted_to_oc');
+        @endphp
         <select name="status" id="status-select" class="form-select form-select-sm">
-            @foreach($statuses as $value => $label)
+            @foreach($selectableStatuses as $value => $label)
                 <option value="{{ $value }}" @selected($val('status', 'draft') === $value)>{{ $label }}</option>
             @endforeach
         </select>
@@ -380,6 +398,17 @@ document.addEventListener('DOMContentLoaded', function () {
      * the buyer/category 'change' listeners below, never from init.
      */
     function filterOptionsByCategory(selectEl, allowedIds, clearIfInvalid) {
+        // C-04: guard against a non-<select> match. TomSelect's rendered
+        // wrapper <div> copies the original <select>'s class list onto
+        // itself (so it keeps the same Bootstrap sizing/spacing classes),
+        // which means a plain '.js-group-category' selector matches BOTH
+        // the real (now-hidden) <select> and the wrapper div sitting next
+        // to it. selectEl.options is undefined on the div, so
+        // Array.from(undefined) used to throw "undefined is not iterable"
+        // and aborted the whole buyer-change handler — this is what broke
+        // Agent/Commission/Currency prefill on Buyer selection.
+        if (! selectEl || ! selectEl.options) return;
+
         Array.from(selectEl.options).forEach(function (opt) {
             if (opt.value === '') return;
             opt.hidden = allowedIds && allowedIds.length ? ! allowedIds.includes(Number(opt.value)) : false;
@@ -393,7 +422,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const buyer = buyers[buyerSelect.value];
         const allowed = buyer ? buyer.categories : null;
         filterOptionsByCategory(categorySelect, allowed, clearIfInvalid);
-        itemsWrap.querySelectorAll('.js-group-category').forEach(function (sel) {
+        // Scope to real <select> elements only — see the guard note in
+        // filterOptionsByCategory() above for why '.js-group-category'
+        // alone (without the `select` tag qualifier) is unsafe here.
+        itemsWrap.querySelectorAll('select.js-group-category').forEach(function (sel) {
             filterOptionsByCategory(sel, allowed, clearIfInvalid);
         });
     }
@@ -1181,6 +1213,25 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const fobUnit = parseFloat(fobUnitEl?.value) || 0;
         if (totalFobEl) totalFobEl.value = (fobUnit && qty) ? (fobUnit * qty).toFixed(2) : '';
+
+        // H-07: no signal at all previously stopped a price below cost from
+        // saving silently (e.g. price 0.01 against cost 300.00 — a 299.99
+        // per-unit loss the pipeline reports never showed). This is a
+        // warning, not a hard block: some lines are genuinely quoted at a
+        // loss on purpose (loss-leader, sample, buyer-driven price), and a
+        // silent submit-block with no override path would just get in the
+        // sales team's way. Compared against finalCost (cost + BOM), the
+        // true all-in cost, not just the raw Cost Price field alone.
+        const priceInput = itemEl.querySelector('.js-price');
+        const marginWarning = itemEl.querySelector('.js-margin-warning');
+        const belowCost = price > 0 && finalCost > 0 && price < finalCost;
+        if (priceInput) priceInput.classList.toggle('is-invalid', belowCost);
+        if (marginWarning) {
+            marginWarning.style.display = belowCost ? '' : 'none';
+            marginWarning.textContent = belowCost
+                ? 'Below cost by ' + (finalCost - price).toFixed(2) + '/unit'
+                : '';
+        }
 
         syncBomDropdown(itemEl);
         scheduleFobQuote(itemEl, finalCost);

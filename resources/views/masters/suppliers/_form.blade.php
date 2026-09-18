@@ -181,18 +181,27 @@
                 GST Number <span class="req">*</span>
             </label>
             <div class="col-sm-8 col-lg-9">
+                {{-- M-15: only maxlength was ever enforced client-side, so
+                     'ABCDEFGHIJKLMNO' passed the browser's own check even
+                     though the server (see SupplierRequest) already rejects
+                     it — pattern here just surfaces that same GSTIN shape as
+                     immediate, in-browser feedback instead of a round trip. --}}
                 <input type="text" id="gst_number" name="gst_number" maxlength="15"
                        value="{{ old('gst_number', $supplier?->gst_number) }}"
                        class="form-control font-monospace text-uppercase @error('gst_number') is-invalid @enderror"
-                       placeholder="33ABCDE1234F1Z5" autocomplete="off">
+                       placeholder="33ABCDE1234F1Z5" autocomplete="off"
+                       pattern="[0-9]{2}[A-Za-z]{5}[0-9]{4}[A-Za-z][0-9A-Za-z]Z[0-9A-Za-z]"
+                       title="15-character GSTIN, e.g. 33ABCDE1234F1Z5">
                 @error('gst_number')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                 <div class="form-text">15 characters. Contains the PAN below at positions 3–12.</div>
             </div>
         </div>
 
         {{-- Col F --}}
+        {{-- M-15: same client-side gap as GST above --}}
         <x-ui.field name="pan_number" label="PAN Number" :value="$supplier?->pan_number"
                     horizontal maxlength="10" placeholder="ABCDE1234F"
+                    pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]" title="10-character PAN, e.g. ABCDE1234F"
                     class="font-monospace text-uppercase" />
 
         {{-- Col G — "to appear to put in the msme registration details". The
@@ -553,8 +562,10 @@
                     class="font-monospace" />
 
         {{-- Col W --}}
+        {{-- M-15: same client-side gap as GST above --}}
         <x-ui.field name="ifsc_code" label="IFSC Code" :value="$supplier?->ifsc_code"
                     horizontal maxlength="11" placeholder="HDFC0001234"
+                    pattern="[A-Za-z]{4}0[A-Za-z0-9]{6}" title="11-character IFSC code, e.g. HDFC0001234"
                     class="font-monospace text-uppercase" />
 
     </div>

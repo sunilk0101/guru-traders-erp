@@ -35,7 +35,14 @@ use App\Http\Controllers\UserManagement\UserController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => view('welcome'));
+// H-01: bare '/' (or '/guru-traders/' behind the subpath proxy) used to
+// 405 in production because no GET handler existed there at all once the
+// route cache went stale — this is the "first impression" URL anyone
+// hitting the base domain lands on, so it needs to always resolve to
+// something real rather than depend on a view nobody maintains.
+Route::get('/', fn () => auth()->check()
+    ? redirect()->route('dashboard')
+    : redirect()->route('login'));
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])

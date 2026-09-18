@@ -52,9 +52,12 @@ abstract class ProductRequest extends FormRequest
 
         $rules = [
             'category_id'             => ['required', 'integer', Rule::exists('categories', 'id')],
-            // Max 5 characters, letters and numbers only — same convention as
-            // Buyer and Agent display codes.
-            'item_group_code'         => ['required', 'string', 'max:5', 'regex:/^[A-Z0-9]+$/', Rule::unique('products', 'item_group_code')->ignore($ignore)],
+            // H-03: was max:5, but imported data already has 6-character
+            // codes (370AAB / 370AAA — the longest across all 589 existing
+            // products), so a rule of 5 rejected saving those on Edit. 6
+            // matches the real data instead of the original, unverified
+            // convention borrowed from Buyer/Agent codes.
+            'item_group_code'         => ['required', 'string', 'max:6', 'regex:/^[A-Z0-9]+$/', Rule::unique('products', 'item_group_code')->ignore($ignore)],
             'name'                    => ['required', 'string', 'max:200', Rule::unique('products', 'name')->ignore($ignore)],
             'name_on_export_document' => ['nullable', 'string', 'max:255'],
 
@@ -160,7 +163,7 @@ abstract class ProductRequest extends FormRequest
     {
         return [
             'item_group_code.unique' => 'This item group code is already taken.',
-            'item_group_code.max'    => 'Item group code may not be longer than 5 characters.',
+            'item_group_code.max'    => 'Item group code may not be longer than 6 characters.',
             'item_group_code.regex'  => 'Item group code may contain letters and numbers only.',
             'name.unique'            => 'A product with this name already exists.',
             'hsn_code.regex'         => 'HSN code must be 4 to 12 digits.',

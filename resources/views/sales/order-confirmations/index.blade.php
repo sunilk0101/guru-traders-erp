@@ -35,7 +35,7 @@
                 </select>
             </div>
             <div class="col-md-2 d-flex gap-2">
-                <button class="btn btn-sm btn-secondary"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <button class="btn btn-sm btn-secondary text-nowrap d-inline-flex align-items-center flex-shrink-0"><i class="bi bi-funnel me-1"></i>Filter</button>
                 <a href="{{ route('sales.order-confirmations.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
             </div>
         </form>
@@ -85,7 +85,7 @@
                                     @can('order-confirmation.delete')
                                         <x-ui.delete-form
                                             :action="route('sales.order-confirmations.destroy', $oc)"
-                                            :confirm="'Delete OC &quot;'.$oc->oc_num.'&quot;? This cannot be undone.'" />
+                                            :confirm='"Delete OC \"" . $oc->oc_num . "\"? This cannot be undone."' />
                                     @endcan
                                 </div>
                             </td>

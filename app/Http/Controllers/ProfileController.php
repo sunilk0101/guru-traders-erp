@@ -34,7 +34,12 @@ class ProfileController extends Controller
 
         $request->user()->save();
 
-        return Redirect::route('profile.edit')->with('status', 'profile-updated');
+        // M-07: the app's own alert convention (session('success'/'error'/...),
+        // rendered globally in layouts/app.blade.php) instead of Breeze's
+        // 'status' key + an Alpine toast that never actually ran here (see
+        // the profile partials — Alpine is a listed dependency but is never
+        // bootstrapped anywhere in resources/js/app.js).
+        return Redirect::route('profile.edit')->with('success', 'Profile updated.');
     }
 
     /**
