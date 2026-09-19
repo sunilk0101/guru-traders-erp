@@ -23,13 +23,21 @@
                             @error('company_name') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
 
+                        {{-- M-10: was col-md-4 with the thumbnail and file input side by
+                             side in a plain d-flex — file inputs don't shrink to fit a flex
+                             child the way other controls do, so at a normal 1024px width
+                             (col-md-4 inside this col-lg-9 card is well under 300px) the row
+                             ran wider than the card instead of wrapping. flex-wrap plus
+                             min-width:0 on the input lets it shrink or drop to its own line
+                             instead of forcing the card open. --}}
                         <div class="col-md-4">
                             <label class="form-label">Logo</label>
-                            <div class="d-flex align-items-center gap-2">
+                            <div class="d-flex flex-wrap align-items-center gap-2">
                                 @if($profile->hasLogo())
                                     <img src="{{ $profile->logoUrl() }}" alt="Logo" style="height:36px" class="border rounded p-1">
                                 @endif
-                                <input type="file" name="logo" accept="image/*" class="form-control form-control-sm @error('logo') is-invalid @enderror">
+                                <input type="file" name="logo" accept="image/*" style="min-width:0"
+                                       class="form-control form-control-sm flex-grow-1 @error('logo') is-invalid @enderror">
                             </div>
                             @error('logo') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                         </div>

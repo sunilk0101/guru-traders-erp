@@ -25,7 +25,12 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-2">
+            {{-- M-10: PO Reference and Status were col-md-2 (~17% of the card
+                 width) — too narrow at a normal 1024px width to show even
+                 "All Statuses" without clipping. Widened to col-md-3; the
+                 row now runs past 12 columns so the buttons wrap onto their
+                 own line instead of being squeezed for room. --}}
+            <div class="col-md-3">
                 <label class="form-label small text-body-secondary mb-1">PO Reference</label>
                 <select name="purchase_order_id" class="form-select form-select-sm">
                     <option value="">All POs</option>
@@ -34,7 +39,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <label class="form-label small text-body-secondary mb-1">Status</label>
                 <select name="status" class="form-select form-select-sm">
                     <option value="">All Statuses</option>

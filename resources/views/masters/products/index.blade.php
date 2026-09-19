@@ -66,7 +66,7 @@
                                              style="width:32px;height:32px;object-fit:cover">
                                     @endif
                                     <div>
-                                        <span class="fw-semibold">{{ $product->name }}</span>
+                                        <span class="fw-semibold">{{ $product->displayName() }}</span> {{-- L-02: was $product->name, which for imported rows often repeats the Item Code column right next to it --}}
                                         @if($product->name_on_export_document && $product->name_on_export_document !== $product->name)
                                             <div class="small text-body-secondary">
                                                 <i class="bi bi-file-earmark-text me-1"></i>{{ $product->name_on_export_document }}

@@ -8,6 +8,20 @@
     <title>{{ config('app.name', 'Guru Traders ERP') }}</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
+        /* M-10: this login page is a fixed light design with no dark-mode
+           variant of its own — but without an explicit color-scheme, a
+           browser running with the OS/browser in dark mode still paints its
+           OWN native chrome (autofill panel, and specifically the built-in
+           password-reveal control) using dark colors, which showed up as a
+           dark patch behind the password field while every other input
+           stayed on our own light background. Declaring the page light
+           tells the browser to keep native form-control chrome light too.
+           Also hides Chrome/Edge's own built-in reveal icon so it doesn't
+           sit on top of this page's own eye button. */
+        :root { color-scheme: light; }
+        input[type="password"]::-ms-reveal,
+        input[type="password"]::-ms-clear { display: none; }
+        input[type="password"]::-webkit-textfield-decoration-container { color-scheme: light; }
         body.modern-login {
             background-color: #f4f7f6;
             margin: 0;

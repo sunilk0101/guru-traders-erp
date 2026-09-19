@@ -277,6 +277,15 @@
     </div>
 </x-ui.form-section>
 
+{{-- M-12: Status dropdown + Save Draft + Submit used to be three controls
+     that could disagree — Save Draft silently forced Status back to
+     'draft' even if you'd picked something else, and Submit left Status
+     on 'draft' if you never touched the dropdown, saving a "submitted"
+     inquiry that still read as a draft. Status is now the single source
+     of truth for what gets saved either way; Save Draft only relaxes
+     which fields are required, and Submit refuses to go out with Status
+     still on Draft instead of silently accepting it (see the submit
+     handler below). --}}
 <div class="form-actions d-flex flex-wrap gap-2 align-items-center">
     <div class="me-auto">
         <label class="form-label small text-body-secondary mb-1">Status</label>
@@ -298,6 +307,7 @@
                 <option value="{{ $value }}" @selected($val('status', 'draft') === $value)>{{ $label }}</option>
             @endforeach
         </select>
+        <div class="form-text mb-0">This is what gets saved — Save Draft only skips required-field checks, it does not change Status.</div>
     </div>
 
     <a href="{{ $isEdit ? route('sales.inquiries.show', $inquiry) : route('sales.inquiries.index') }}"
@@ -1624,12 +1634,31 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* --------------------------- Mode / status buttons --------------------------- */
 
+    // M-12: Save Draft used to force Status back to 'draft' even if the
+    // user had deliberately picked something else — a Quote Sent inquiry
+    // saved with Save Draft (to skip a required field, say) would silently
+    // lose its real status. Save Draft now only relaxes which fields are
+    // required (via mode=draft, see InquiryRequest); Status is left exactly
+    // as chosen, defaulting to 'draft' only because that's the dropdown's
+    // own default for a brand-new inquiry.
     document.getElementById('btn-save-draft').addEventListener('click', function () {
         document.getElementById('mode-input').value = 'draft';
-        document.getElementById('status-select').value = 'draft';
     });
 
-    document.getElementById('btn-submit').addEventListener('click', function () {
+    // M-12: Submit used to accept Status still sitting on 'draft' without
+    // comment, producing an inquiry that was fully validated as "submitted"
+    // but still read as a Draft everywhere else in the app (pipeline chart,
+    // status badges). Block that specific combination and point the user at
+    // the dropdown instead of guessing a status on their behalf.
+    document.getElementById('btn-submit').addEventListener('click', function (e) {
+        const statusSelect = document.getElementById('status-select');
+        if (statusSelect.value === 'draft') {
+            e.preventDefault();
+            statusSelect.classList.add('is-invalid');
+            statusSelect.focus();
+            return;
+        }
+        statusSelect.classList.remove('is-invalid');
         document.getElementById('mode-input').value = 'submit';
     });
 

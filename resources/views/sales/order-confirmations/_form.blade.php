@@ -59,9 +59,14 @@
     <div class="row">
         <div class="col-md-3 mb-3">
             <label class="form-label fw-semibold">Contract No.</label>
+            {{-- M-10: the numbering pattern used to sit inside the readonly
+                 input's own value on a fresh OC (e.g. "GT/[buyer code]/[seq]/
+                 [FY]"), which is wider than the field at a normal 1024px
+                 width and just clips mid-placeholder — moved below as a
+                 hint instead, same as every other field's numbering note. --}}
             <input type="text" class="form-control bg-body-tertiary" readonly
-                   value="{{ $isEdit ? $orderConfirmation->oc_num : 'GT/[buyer code]/[seq]/[FY]' }}">
-            <div class="form-text">Global running sequence</div>
+                   value="{{ $isEdit ? $orderConfirmation->oc_num : 'Auto-generated on save' }}">
+            <div class="form-text">Global running sequence · format GT/[buyer code]/[seq]/[FY]</div>
         </div>
 
         <x-ui.select name="mode" label="Type" required col="col-md-3"
@@ -96,7 +101,10 @@
         <x-ui.select name="agent_id" label="Agent" col="col-md-3"
                      :options="$agents" :selected="$val('agent_id')" hint="Buyer Master" />
 
-        <x-ui.select name="agent_commission_type" label="Commission Type" col="col-md-2"
+        {{-- M-10: was col-md-2 — too narrow at a normal 1024px width for even
+             the placeholder text ("— Select —" showed as "— Sele"), let
+             alone "Percent" / "Flat" once chosen. --}}
+        <x-ui.select name="agent_commission_type" label="Commission Type" col="col-md-3"
                      :options="['percent' => 'Percent', 'flat' => 'Flat']" :selected="$val('agent_commission_type')" />
 
         <x-ui.field name="agent_commission_value" label="Commission" type="number" col="col-md-2"

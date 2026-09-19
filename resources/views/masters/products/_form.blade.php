@@ -68,6 +68,12 @@
                        class="form-control js-unique-check @error('name') is-invalid @enderror"
                        data-field="name" placeholder="Cotton Casual Shirt" autocomplete="off">
                 @error('name')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                {{-- L-02: several imported products have their own Item Group Code
+                     typed straight into the name (e.g. "... (370AAB)"), duplicating
+                     the field right above. The Item Group Code field already prints
+                     next to the name everywhere, so it does not need to live inside
+                     it too. --}}
+                <div class="form-text">Don't repeat the Item Group Code here — it already shows alongside the name everywhere.</div>
                 <div class="form-text js-unique-feedback"></div>
             </div>
         </div>
@@ -386,16 +392,27 @@
                      :selected="$product?->status ?? 'active'"
                      :placeholder="false" />
 
+        {{-- L-07: Description, Remarks and Comments used to read as three
+             identical "optional notes" boxes with no way to tell them apart —
+             imported data already mixes what belongs in which. Comments is
+             kept rather than dropped (existing products already have real
+             data in it, and removing it here would only hide that data, not
+             the underlying duplication), but relabelled as the legacy one so
+             new entries have a single obvious place — Internal Notes — to
+             go instead. --}}
         {{-- Col Y --}}
         <x-ui.textarea name="description" label="Description" :value="$product?->description"
-                       horizontal rows="2" placeholder="100% Cotton, 180 GSM" />
+                       horizontal rows="2" placeholder="100% Cotton, 180 GSM"
+                       hint="Product characteristics — reference text for anyone looking the product up." />
 
         {{-- Col AA --}}
-        <x-ui.textarea name="remarks" label="Remarks" :value="$product?->remarks"
-                       horizontal rows="2" placeholder="Optional notes" />
+        <x-ui.textarea name="remarks" label="Internal Notes" :value="$product?->remarks"
+                       horizontal rows="2" placeholder="Optional notes"
+                       hint="Internal only. Use this field for new notes." />
 
-        <x-ui.textarea name="comments" label="Comments" :value="$product?->comments"
-                       horizontal rows="2" placeholder="Optional comments" />
+        <x-ui.textarea name="comments" label="Comments (legacy)" :value="$product?->comments"
+                       horizontal rows="2" placeholder="Optional comments"
+                       hint="Older field, kept for existing data — prefer Internal Notes above for anything new." />
 
     </div>
 </x-ui.form-section>

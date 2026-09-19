@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">Product Details</x-slot>
 
-    <x-ui.card title="{{ $product->item_group_code }} — {{ $product->name }}" variant="primary">
+    <x-ui.card title="{{ $product->item_group_code }} — {{ $product->displayName() }}" variant="primary"> {{-- L-02 --}}
         <x-slot name="actions">
             @can('product.edit')
                 <a href="{{ route('masters.products.edit', $product) }}" class="btn btn-sm btn-primary">
@@ -118,11 +118,15 @@
                     <dt class="col-sm-5 text-body-secondary fw-normal">Description</dt>
                     <dd class="col-sm-7">{{ $product->description ?: '—' }}</dd>
 
-                    <dt class="col-sm-5 text-body-secondary fw-normal">Remarks</dt>
+                    <dt class="col-sm-5 text-body-secondary fw-normal">Internal Notes</dt>
                     <dd class="col-sm-7">{{ $product->remarks ?: '—' }}</dd>
 
-                    <dt class="col-sm-5 text-body-secondary fw-normal">Comments</dt>
-                    <dd class="col-sm-7">{{ $product->comments ?: '—' }}</dd>
+                    @if($product->comments)
+                        {{-- L-07: legacy field — only shown when a product actually has
+                             data in it, so it doesn't read as a fourth active field. --}}
+                        <dt class="col-sm-5 text-body-secondary fw-normal">Comments <span class="small">(legacy)</span></dt>
+                        <dd class="col-sm-7">{{ $product->comments }}</dd>
+                    @endif
 
                     <dt class="col-sm-5 text-body-secondary fw-normal">Created</dt>
                     <dd class="col-sm-7 text-body-secondary small">
