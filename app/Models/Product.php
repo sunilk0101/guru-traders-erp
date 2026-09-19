@@ -55,6 +55,10 @@ class Product extends Model
             'fabric_length_mtr' => 'decimal:3',
             'fabric_width_inch' => 'decimal:3',
             'sq_mtr_per_unit'   => 'decimal:4',
+            // L-03: deliberately not in $fillable above — this is written by
+            // an importer, not by the product form, and keeping it out of
+            // mass assignment means a normal edit can never clobber it.
+            'import_meta'       => 'array',
         ];
     }
 
