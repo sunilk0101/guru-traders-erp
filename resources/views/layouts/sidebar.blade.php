@@ -285,23 +285,13 @@
                      that bill, we pay what is left, the buyer pays us, the agent
                      takes their cut.
                 --}}
-                {{-- C-01: Billing & Invoices, Finance Tracker, Vouchers, Budget
-                     Planner, Payroll & Salary and GST Filings all return a bare
-                     500 (missing table/migration — needs server access to
-                     confirm and fix, see the audit). Until that's fixed, those
-                     six are marked .soon and their click is disabled below
-                     instead of sending users into a dead-end error page — the
-                     other five Finance pages (Purchase Bills, Debit Notes,
-                     Supplier Payments, Buyer Receipts, Agent Commission) were
-                     confirmed working (see M-13) and are left untouched. --}}
                 @if($canAny(['billing.view', 'finance-tracker.view', 'voucher.view', 'budget.view', 'payroll.view', 'gst-filing.view', 'purchase-bill.view', 'debit-note.view', 'payment.view', 'foreign-payment.view', 'agent-commission.view']))
                     <li class="nav-header">Finance</li>
 
                     @can('billing.view')
                         <li class="nav-item">
                             <a href="{{ route('finance.billing.index') }}"
-                               class="nav-link soon" data-bs-toggle="tooltip" data-bs-placement="right"
-                               title="Temporarily unavailable — see C-01 in the audit">
+                               class="nav-link {{ request()->routeIs('finance.billing.*') ? 'active' : '' }}">
                                 <i class="nav-icon bi bi-receipt-cutoff"></i><p>Billing & Invoices</p>
                             </a>
                         </li>
@@ -309,8 +299,7 @@
                     @can('finance-tracker.view')
                         <li class="nav-item">
                             <a href="{{ route('finance.tracker.index') }}"
-                               class="nav-link soon" data-bs-toggle="tooltip" data-bs-placement="right"
-                               title="Temporarily unavailable — see C-01 in the audit">
+                               class="nav-link {{ request()->routeIs('finance.tracker.*') ? 'active' : '' }}">
                                 <i class="nav-icon bi bi-graph-up-arrow"></i><p>Finance Tracker</p>
                             </a>
                         </li>
@@ -318,8 +307,7 @@
                     @can('voucher.view')
                         <li class="nav-item">
                             <a href="{{ route('finance.vouchers.index') }}"
-                               class="nav-link soon" data-bs-toggle="tooltip" data-bs-placement="right"
-                               title="Temporarily unavailable — see C-01 in the audit">
+                               class="nav-link {{ request()->routeIs('finance.vouchers.*') ? 'active' : '' }}">
                                 <i class="nav-icon bi bi-journal-check"></i><p>Vouchers</p>
                             </a>
                         </li>
@@ -327,8 +315,7 @@
                     @can('budget.view')
                         <li class="nav-item">
                             <a href="{{ route('finance.budget.index') }}"
-                               class="nav-link soon" data-bs-toggle="tooltip" data-bs-placement="right"
-                               title="Temporarily unavailable — see C-01 in the audit">
+                               class="nav-link {{ request()->routeIs('finance.budget.*') ? 'active' : '' }}">
                                 <i class="nav-icon bi bi-bullseye"></i><p>Budget Planner</p>
                             </a>
                         </li>
@@ -336,8 +323,7 @@
                     @can('payroll.view')
                         <li class="nav-item">
                             <a href="{{ route('finance.payroll.index') }}"
-                               class="nav-link soon" data-bs-toggle="tooltip" data-bs-placement="right"
-                               title="Temporarily unavailable — see C-01 in the audit">
+                               class="nav-link {{ request()->routeIs('finance.payroll.*') ? 'active' : '' }}">
                                 <i class="nav-icon bi bi-person-badge"></i><p>Payroll & Salary</p>
                             </a>
                         </li>
@@ -345,8 +331,7 @@
                     @can('gst-filing.view')
                         <li class="nav-item">
                             <a href="{{ route('finance.gst.index') }}"
-                               class="nav-link soon" data-bs-toggle="tooltip" data-bs-placement="right"
-                               title="Temporarily unavailable — see C-01 in the audit">
+                               class="nav-link {{ request()->routeIs('finance.gst.*') ? 'active' : '' }}">
                                 <i class="nav-icon bi bi-file-earmark-spreadsheet"></i><p>GST Filings</p>
                             </a>
                         </li>
