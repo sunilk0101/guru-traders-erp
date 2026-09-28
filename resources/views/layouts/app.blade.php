@@ -309,6 +309,12 @@
                 height: 28px;
             }
 
+            /* Smooth transition when rail expands on hover */
+            .sidebar-mini.sidebar-collapse .app-sidebar:hover {
+                box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.15) !important;
+                z-index: 1039;
+            }
+
             /* Below the expand breakpoint the sidebar is an off-canvas drawer,
                not a rail: mini mode there would leave a 4.6rem strip of icons
                permanently covering the content. Restore the full-width hide.
