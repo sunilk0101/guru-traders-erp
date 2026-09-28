@@ -622,6 +622,88 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     /* ------------------------------------------------------------------ *
+     * Live claim preview: Rate% × FOB vs Cap × PCS → lower.
+     * ------------------------------------------------------------------ */
+    const sampleFob = document.getElementById('incentive-sample-fob');
+    const samplePcs = document.getElementById('incentive-sample-pcs');
+    const claimRows = document.getElementById('incentive-claim-rows');
+    const schemeLabels = @json(ProductIncentive::SCHEMES);
+
+    function schemeClaim(scheme, fob, pcs) {
+        const p1 = parseFloat(document.querySelector('[name="incentives[' + scheme + '][percent_1]"]')?.value) || 0;
+        const p2El = document.querySelector('[name="incentives[' + scheme + '][percent_2]"]');
+        const p2 = p2El && ! p2El.disabled ? (parseFloat(p2El.value) || 0) : 0;
+        const cap1Raw = document.querySelector('[name="incentives[' + scheme + '][cap_value]"]')?.value;
+        const cap2El = document.querySelector('[name="incentives[' + scheme + '][cap_value_2]"]');
+        const cap2Raw = cap2El && ! cap2El.disabled ? cap2El.value : '';
+        const enabled = document.getElementById('incentive-toggle-' + scheme)?.checked;
+
+        function leg(pct, capRaw) {
+            const rateAmt = Math.max(0, fob * (pct / 100));
+            const hasCap = capRaw !== undefined && capRaw !== null && String(capRaw).trim() !== '';
+            const capAmt = hasCap ? Math.max(0, pcs * (parseFloat(capRaw) || 0)) : null;
+            const claim = capAmt === null ? rateAmt : Math.min(rateAmt, capAmt);
+            return { rateAmt, capAmt, claim, pct };
+        }
+
+        // RoSCTL with both caps filled → two independent legs (matches sheet U + Y).
+        const hasCap2 = cap2Raw !== undefined && cap2Raw !== null && String(cap2Raw).trim() !== '';
+        if (scheme === 'rosctl' && p2 > 0 && hasCap2) {
+            const a = leg(p1, cap1Raw);
+            const b = leg(p2, cap2Raw);
+            return {
+                ratePct: a.pct + b.pct,
+                rateAmt: a.rateAmt + b.rateAmt,
+                capAmt: (a.capAmt || 0) + (b.capAmt || 0),
+                claim: a.claim + b.claim,
+                enabled: enabled,
+                paired: true,
+            };
+        }
+
+        const combined = leg(p1 + p2, cap1Raw);
+        return {
+            ratePct: combined.pct,
+            rateAmt: combined.rateAmt,
+            capAmt: combined.capAmt,
+            claim: combined.claim,
+            enabled: enabled,
+            paired: false,
+        };
+    }
+
+    function renderIncentiveClaims() {
+        if (! claimRows) return;
+        const fob = parseFloat(sampleFob?.value) || 0;
+        const pcs = parseFloat(samplePcs?.value) || 0;
+        const lines = [];
+        Object.keys(schemeLabels).forEach(function (scheme) {
+            const row = schemeClaim(scheme, fob, pcs);
+            if (! row.enabled || row.ratePct <= 0) return;
+            const capText = row.capAmt === null
+                ? 'no cap'
+                : ('Cap×PCS = ' + row.capAmt.toFixed(2));
+            lines.push(
+                '<div class="mb-1"><strong>' + schemeLabels[scheme] + '</strong>: '
+                + 'Rate×FOB = ' + row.rateAmt.toFixed(2)
+                + ' · ' + capText
+                + ' → <span class="text-success">Claim ₹' + row.claim.toFixed(2) + '</span></div>'
+            );
+        });
+        claimRows.innerHTML = lines.length
+            ? lines.join('')
+            : '<span class="text-body-secondary">Turn on a scheme and enter Rate % to preview the claim.</span>';
+    }
+
+    sampleFob?.addEventListener('input', renderIncentiveClaims);
+    samplePcs?.addEventListener('input', renderIncentiveClaims);
+    document.querySelectorAll('[data-incentive-field]').forEach(function (el) {
+        el.addEventListener('input', renderIncentiveClaims);
+        el.addEventListener('change', renderIncentiveClaims);
+    });
+    renderIncentiveClaims();
+
+    /* ------------------------------------------------------------------ *
      * "Tell me if a code / name is already taken" (sheet cols B and C).
      * A convenience only — the unique index is what actually enforces it.
      * ------------------------------------------------------------------ */
