@@ -3,6 +3,9 @@
 
     <x-ui.card :title="'Edit '.$document->doc_num" variant="primary">
         <x-slot name="actions">
+            <a href="{{ route('export.packing.show', $document) }}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-box-seam me-1"></i> Import packing list
+            </a>
             <a href="{{ route('export.documents.show', $document) }}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i> Back
             </a>
@@ -351,6 +354,11 @@
             <h6 class="fw-semibold mb-2">
                 Cartons <span class="text-body-secondary fw-normal">(Packing List Formats B &amp; C — what's physically packed in each carton)</span>
             </h6>
+            <div class="alert alert-light border py-2 small mb-3">
+                Outside packer? Prefer
+                <a href="{{ route('export.packing.show', $document) }}">Import supplier packing list</a>
+                (Excel / PDF form) instead of typing every carton here.
+            </div>
             <div id="cartons-wrap" class="mb-4">
                 @php
                     $cartonRows = old('cartons');

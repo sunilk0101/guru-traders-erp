@@ -99,6 +99,8 @@ abstract class InquiryRequest extends FormRequest
             'items.*.fob_value_id'         => ['nullable', 'integer', Rule::exists('fob_values', 'id')],
             'items.*.price'                => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
             'items.*.cost_price'           => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
+            'items.*.bom_cost'             => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
+            'items.*.fob_unit'             => ['nullable', 'numeric', 'min:0', 'max:9999999999.9999'],
             'items.*.status'               => ['nullable', Rule::in(array_keys(Inquiry::STATUSES))],
             'items.*.remarks'              => ['nullable', 'string', 'max:1000'],
 
@@ -116,7 +118,9 @@ abstract class InquiryRequest extends FormRequest
             // Task 12 — BOM snapshot (qty per finished piece), FOB-style costing.
             'items.*.bom'                     => ['nullable', 'array', 'max:100'],
             'items.*.bom.*.component_name'    => ['nullable', 'string', 'max:200'],
+            'items.*.bom.*.size'              => ['nullable', 'string', 'max:60'],
             'items.*.bom.*.qty'               => ['nullable', 'numeric', 'min:0', 'max:99999999.9999'],
+            'items.*.bom.*.rate'              => ['nullable', 'numeric', 'min:0', 'max:99999999.9999'],
             'items.*.bom.*.unit'              => ['nullable', 'string', 'max:20'],
             'items.*.bom.*.is_custom'         => ['nullable', 'boolean'],
             'items.*.bom.*.remarks'           => ['nullable', 'string', 'max:500'],

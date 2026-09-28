@@ -17,7 +17,9 @@ class InquiryItemBomLine extends Model
         'inquiry_item_id',
         'sort_order',
         'component_name',
+        'size',
         'qty',
+        'rate',
         'unit',
         'is_custom',
         'remarks',
@@ -28,8 +30,15 @@ class InquiryItemBomLine extends Model
         return [
             'sort_order' => 'integer',
             'qty'        => 'decimal:4',
+            'rate'       => 'decimal:4',
             'is_custom'  => 'boolean',
         ];
+    }
+
+    /** Consumption × Rate for one finished piece. */
+    public function lineTotal(): float
+    {
+        return round((float) $this->qty * (float) ($this->rate ?? 0), 4);
     }
 
     public function inquiryItem(): BelongsTo

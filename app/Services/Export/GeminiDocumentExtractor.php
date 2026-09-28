@@ -101,12 +101,27 @@ class GeminiDocumentExtractor
      */
     public function extract(UploadedFile $file, string $typeCode): array
     {
-        if (! $this->isConfigured()) {
-            throw new RuntimeException('Gemini is not configured. Set GEMINI_API_KEY in .env.');
-        }
-
         if (! $this->supports($typeCode)) {
             throw new RuntimeException("OCR is not available for checklist type \"{$typeCode}\".");
+        }
+
+        $schema = $this->schemaFor($typeCode);
+        $fields = $this->extractStructured($file, $this->promptFor($typeCode, $schema));
+
+        return $this->mapToChecklistFields($typeCode, $fields);
+    }
+
+    /**
+     * Generic Gemini JSON extract for supplier packing lists / PO reply forms
+     * (not limited to export checklist type codes).
+     *
+     * @param  array<string, string>  $schema  key => human description
+     * @return array<string, mixed>
+     */
+    public function extractStructured(UploadedFile $file, string $prompt): array
+    {
+        if (! $this->isConfigured()) {
+            throw new RuntimeException('Gemini is not configured. Set GEMINI_API_KEY in .env.');
         }
 
         $mime = $file->getMimeType() ?: 'application/octet-stream';
@@ -116,15 +131,12 @@ class GeminiDocumentExtractor
             throw new RuntimeException('Upload a PDF or image (JPEG, PNG, WebP, GIF).');
         }
 
-        $schema = $this->schemaFor($typeCode);
-        $prompt = $this->promptFor($typeCode, $schema);
-
         $model = config('services.gemini.model', 'gemini-2.5-flash');
         $key = config('services.gemini.key');
         $url = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
 
         try {
-            $http = Http::timeout(60)->withQueryParameters(['key' => $key]);
+            $http = Http::timeout(90)->withQueryParameters(['key' => $key]);
 
             if (config('services.gemini.verify_ssl') === false) {
                 $http = $http->withoutVerifying();
@@ -158,9 +170,8 @@ class GeminiDocumentExtractor
         }
 
         $text = data_get($response->json(), 'candidates.0.content.parts.0.text', '');
-        $fields = $this->parseJsonObject($text);
 
-        return $this->mapToChecklistFields($typeCode, $fields);
+        return $this->parseJsonObject($text);
     }
 
     /**

@@ -2,6 +2,8 @@
 
 namespace App\Services\Sales;
 
+use App\Models\Agent;
+use App\Models\Buyer;
 use App\Models\Inquiry;
 use App\Models\NumberSeries;
 use App\Services\NumberSeriesService;
@@ -81,13 +83,42 @@ class InquiryService
 
     /**
      * Strip the keys that are children rather than columns on the header.
+     * Commission always comes from Agent Master — never from a posted edit.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     private function headerData(array $data): array
     {
-        return array_diff_key($data, array_flip(['items', 'followups']));
+        $header = array_diff_key($data, array_flip(['items', 'followups']));
+
+        $agentId = $header['agent_id'] ?? null;
+        // If staff left Agent blank, snapshot the buyer's linked agent
+        // (same as the form auto-fill) so older drafts catch up after Buyer Master is linked.
+        if (blank($agentId) && filled($header['buyer_id'] ?? null)) {
+            $agentId = Buyer::query()->whereKey($header['buyer_id'])->value('agent_id');
+            $header['agent_id'] = $agentId;
+        }
+
+        if (blank($agentId)) {
+            $header['agent_commission_type'] = null;
+            $header['agent_commission_value'] = null;
+
+            return $header;
+        }
+
+        $first = Agent::query()
+            ->with('commissions')
+            ->find($agentId)
+            ?->commissions
+            ->first();
+
+        $header['agent_commission_type'] = $first
+            ? ($first->commission_type === 'percent' ? 'percent' : 'flat')
+            : null;
+        $header['agent_commission_value'] = $first ? (float) $first->amount : null;
+
+        return $header;
     }
 
     /**
@@ -105,9 +136,14 @@ class InquiryService
     {
         $inquiry->items()->delete();
 
-        foreach (array_values($items) as $index => $itemData) {
+        $sort = 0;
+        foreach (array_values($items) as $itemData) {
+            if ($this->itemRowIsEmpty($itemData)) {
+                continue;
+            }
+
             $item = $inquiry->items()->create([
-                'sort_order'         => $index,
+                'sort_order'         => $sort++,
                 'category_id'        => $itemData['category_id'] ?? $inquiry->category_id,
                 'document_format_id' => $itemData['document_format_id'] ?? $inquiry->document_format_id,
                 'design_no'          => $itemData['design_no'] ?? null,
@@ -118,6 +154,8 @@ class InquiryService
                 'fob_value_id'       => $itemData['fob_value_id'] ?? null,
                 'price'              => $itemData['price'] ?? null,
                 'cost_price'         => $itemData['cost_price'] ?? null,
+                'bom_cost'           => $itemData['bom_cost'] ?? null,
+                'fob_unit'           => $itemData['fob_unit'] ?? null,
                 'status'             => $itemData['status'] ?? 'draft',
                 'remarks'            => $itemData['remarks'] ?? null,
                 'custom_values'      => array_filter((array) ($itemData['custom'] ?? []), fn ($v) => filled($v)) ?: null,
@@ -149,26 +187,101 @@ class InquiryService
                 }
             }
 
-            $item->update([
-                'qty'    => $qty,
-                'amount' => round($qty * (float) ($itemData['price'] ?? 0), 2),
-            ]);
-
+            $bomCost = 0.0;
             foreach (array_values($itemData['bom'] ?? []) as $bomIndex => $bomRow) {
                 if (blank($bomRow['component_name'] ?? null)) {
                     continue;
                 }
 
+                $lineQty = (float) ($bomRow['qty'] ?? 1);
+                $lineRate = isset($bomRow['rate']) && $bomRow['rate'] !== '' ? (float) $bomRow['rate'] : null;
+                $bomCost += $lineQty * (float) ($lineRate ?? 0);
+
                 $item->bomLines()->create([
                     'sort_order'     => $bomIndex,
                     'component_name' => $bomRow['component_name'],
-                    'qty'            => $bomRow['qty'] ?? 1,
+                    'size'           => $bomRow['size'] ?? null,
+                    'qty'            => $lineQty,
+                    'rate'           => $lineRate,
                     'unit'           => $bomRow['unit'] ?? null,
                     'is_custom'      => (bool) ($bomRow['is_custom'] ?? true),
                     'remarks'        => $bomRow['remarks'] ?? null,
                 ]);
             }
+
+            $computedBom = round($bomCost, 2);
+            $costPrice = (float) ($itemData['cost_price'] ?? 0);
+            $finalCost = round($costPrice + $computedBom, 2);
+            $fobUnit = isset($itemData['fob_unit']) && $itemData['fob_unit'] !== ''
+                ? (float) $itemData['fob_unit']
+                : $this->fobUnitFor($inquiry, $item->supplier_id, $finalCost);
+
+            $unitPrice = (float) ($itemData['price'] ?? 0);
+            if ($unitPrice <= 0 && $fobUnit > 0) {
+                $unitPrice = $fobUnit;
+            }
+
+            $item->update([
+                'qty'      => $qty,
+                'amount'   => round($qty * $unitPrice, 2),
+                'bom_cost' => $computedBom,
+                'fob_unit' => $fobUnit,
+            ]);
         }
+    }
+
+    /**
+     * Skip blank table rows so "Add item row" placeholders are not saved.
+     *
+     * @param  array<string, mixed>  $itemData
+     */
+    private function itemRowIsEmpty(array $itemData): bool
+    {
+        $hasIdentity = filled($itemData['product_id'] ?? null)
+            || filled($itemData['supplier_id'] ?? null)
+            || filled($itemData['design_no'] ?? null)
+            || filled($itemData['description'] ?? null);
+
+        $qty = 0;
+        foreach ($itemData['colours'] ?? [] as $colour) {
+            foreach ($colour['sizes'] ?? [] as $size) {
+                $qty += (int) ($size['qty'] ?? 0);
+            }
+        }
+
+        $hasMoney = (float) ($itemData['price'] ?? 0) > 0
+            || (float) ($itemData['cost_price'] ?? 0) > 0;
+
+        return ! $hasIdentity && $qty === 0 && ! $hasMoney;
+    }
+
+    /**
+     * FOB / client unit from Markup Master. Margin % never leaves this method
+     * into the form UI — staff only see the resulting FOB figure.
+     */
+    private function fobUnitFor(Inquiry $inquiry, $supplierId, float $finalCost): float
+    {
+        if ($finalCost <= 0 || blank($supplierId) || blank($inquiry->buyer_id)) {
+            return $finalCost;
+        }
+
+        $inquiry->loadMissing('currency');
+
+        $markup = \App\Models\Markup::query()
+            ->where('buyer_id', $inquiry->buyer_id)
+            ->where('supplier_id', $supplierId)
+            ->where('status', 'active')
+            ->first();
+
+        $fobInr = $markup ? $markup->clientPrice($finalCost) : $finalCost;
+        $rate = (float) ($inquiry->exchange_rate ?: 0);
+        $iso = $inquiry->currency?->iso_code;
+
+        if ($rate > 0 && $iso && strtoupper((string) $iso) !== 'INR') {
+            return round($fobInr / $rate, 4);
+        }
+
+        return round($fobInr, 4);
     }
 
     /**

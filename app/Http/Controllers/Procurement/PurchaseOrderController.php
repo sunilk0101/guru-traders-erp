@@ -8,19 +8,27 @@ use App\Http\Requests\Procurement\UpdatePurchaseOrderRequest;
 use App\Models\OrderConfirmation;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
+use App\Services\Export\GeminiDocumentExtractor;
 use App\Services\Export\OcrOrderContextBuilder;
+use App\Services\Procurement\PurchaseOrderOcrService;
 use App\Services\Procurement\PurchaseOrderService;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\View\View;
+use RuntimeException;
+use Throwable;
 
 class PurchaseOrderController extends Controller implements HasMiddleware
 {
     public function __construct(
         private readonly PurchaseOrderService $purchaseOrders,
         private readonly OcrOrderContextBuilder $orderContext,
+        private readonly PurchaseOrderOcrService $poOcr,
+        private readonly GeminiDocumentExtractor $gemini,
     ) {
     }
 
@@ -30,9 +38,9 @@ class PurchaseOrderController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return [
-            new Middleware('permission:purchase-order.view', only: ['index', 'show']),
+            new Middleware('permission:purchase-order.view', only: ['index', 'show', 'replyFormPdf']),
             new Middleware('permission:purchase-order.create', only: ['create', 'store']),
-            new Middleware('permission:purchase-order.edit', only: ['edit', 'update']),
+            new Middleware('permission:purchase-order.edit', only: ['edit', 'update', 'ocrExtract', 'ocrApply']),
             new Middleware('permission:purchase-order.delete', only: ['destroy']),
         ];
     }
@@ -91,7 +99,79 @@ class PurchaseOrderController extends Controller implements HasMiddleware
         return view('procurement.purchase-orders.show', [
             'purchaseOrder' => $purchaseOrder,
             'orderContext'  => $orderContext,
+            'ocrConfigured' => $this->gemini->isConfigured(),
         ]);
+    }
+
+    /** Blank / prefilled PDF for the supplier to fill and return. */
+    public function replyFormPdf(PurchaseOrder $purchaseOrder)
+    {
+        $purchaseOrder->load([
+            'supplier', 'orderConfirmation.buyer',
+            'items.product',
+        ]);
+
+        $pdf = Pdf::loadView('procurement.purchase-orders.reply-form-pdf', [
+            'purchaseOrder' => $purchaseOrder,
+        ]);
+
+        $safe = str_replace(['/', '\\'], '-', $purchaseOrder->po_num);
+
+        return $pdf->download("po-reply-form-{$safe}.pdf");
+    }
+
+    public function ocrExtract(Request $request, PurchaseOrder $purchaseOrder): JsonResponse
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'max:12288', 'mimes:pdf,jpg,jpeg,png,webp,gif'],
+        ]);
+
+        if (! $this->gemini->isConfigured()) {
+            return response()->json([
+                'message' => 'Gemini is not configured. Set GEMINI_API_KEY in .env.',
+            ], 503);
+        }
+
+        try {
+            $result = $this->poOcr->extract($request->file('file'), $purchaseOrder);
+        } catch (RuntimeException $e) {
+            return response()->json(['message' => $e->getMessage()], 422);
+        } catch (Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => 'OCR failed. Try a clearer scan or enter details manually.'], 500);
+        }
+
+        return response()->json($result);
+    }
+
+    public function ocrApply(Request $request, PurchaseOrder $purchaseOrder): RedirectResponse
+    {
+        $data = $request->validate([
+            'payload_json'     => ['required', 'string'],
+            'update_item_qtys' => ['nullable', 'boolean'],
+            'file'             => ['nullable', 'file', 'max:12288', 'mimes:pdf,jpg,jpeg,png,webp,gif'],
+        ]);
+
+        $payload = json_decode($data['payload_json'], true);
+        if (! is_array($payload)) {
+            return back()->with('error', 'Invalid OCR payload. Run extract again.');
+        }
+
+        try {
+            $this->poOcr->apply(
+                $purchaseOrder,
+                $payload,
+                $request->boolean('update_item_qtys', true),
+                $request->file('file'),
+            );
+        } catch (RuntimeException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()
+            ->route('procurement.purchase-orders.show', $purchaseOrder)
+            ->with('success', 'Supplier PO reply applied from OCR.');
     }
 
     public function edit(PurchaseOrder $purchaseOrder): View

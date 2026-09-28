@@ -8,6 +8,9 @@
                     <i class="bi bi-pencil me-1"></i> Edit
                 </a>
             @endcan
+            <a href="{{ route('procurement.purchase-orders.reply-form', $purchaseOrder) }}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-file-earmark-pdf me-1"></i> PO reply form (PDF)
+            </a>
             <a href="{{ route('procurement.purchase-orders.index') }}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i> Back
             </a>
@@ -22,6 +25,53 @@
             </a>
             — items, sizes &amp; colours carried across, ₹ cost from inquiry costing.
         </div>
+
+        @can('purchase-order.edit')
+            <div class="border rounded p-3 mb-4 bg-body-tertiary">
+                <h6 class="fw-semibold mb-1">Supplier PO reply — OCR</h6>
+                <p class="small text-body-secondary mb-2">
+                    Download the PO reply PDF, send it to the supplier to fill, then upload the returned scan.
+                    We read dispatch / packing / confirmed qty and apply them here.
+                </p>
+                @unless($ocrConfigured ?? false)
+                    <div class="form-text text-warning mb-2">Needs <code>GEMINI_API_KEY</code> for OCR.</div>
+                @endunless
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-7">
+                        <label class="form-label small mb-1">Filled PDF / image</label>
+                        <input type="file" id="po-ocr-file" class="form-control form-control-sm" accept="application/pdf,image/*">
+                    </div>
+                    <div class="col-md-5">
+                        <button type="button" id="po-ocr-extract" class="btn btn-sm btn-primary w-100" @disabled(!($ocrConfigured ?? false))>
+                            <i class="bi bi-magic me-1"></i> Extract with OCR
+                        </button>
+                    </div>
+                </div>
+                <div id="po-ocr-error" class="alert alert-danger py-2 small mt-2 d-none"></div>
+                <div id="po-ocr-preview" class="d-none mt-3">
+                    <div class="small text-body-secondary mb-2" id="po-ocr-meta"></div>
+                    <div class="table-responsive mb-2" style="max-height:220px;overflow:auto">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light"><tr><th>Design</th><th>Description</th><th>Qty</th><th>Colour/Size</th></tr></thead>
+                            <tbody id="po-ocr-items"></tbody>
+                        </table>
+                    </div>
+                    <form method="POST" action="{{ route('procurement.purchase-orders.ocr-apply', $purchaseOrder) }}" enctype="multipart/form-data" id="po-ocr-apply-form">
+                        @csrf
+                        <input type="hidden" name="payload_json" id="po-ocr-payload">
+                        <input type="file" name="file" id="po-ocr-apply-file" class="d-none">
+                        <div class="form-check mb-2">
+                            <input type="hidden" name="update_item_qtys" value="0">
+                            <input class="form-check-input" type="checkbox" name="update_item_qtys" value="1" id="po-ocr-qty" checked>
+                            <label class="form-check-label small" for="po-ocr-qty">Also update line quantities from OCR</label>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-success">
+                            <i class="bi bi-check2 me-1"></i> Apply to this PO
+                        </button>
+                    </form>
+                </div>
+            </div>
+        @endcan
 
         <dl class="row mb-4">
             <dt class="col-sm-3 text-body-secondary fw-normal">Status</dt>
@@ -173,4 +223,73 @@
             </dd>
         </dl>
     </x-ui.card>
+
+    @can('purchase-order.edit')
+        <script>
+            (function () {
+                const btn = document.getElementById('po-ocr-extract');
+                if (! btn) return;
+                const fileInput = document.getElementById('po-ocr-file');
+                const err = document.getElementById('po-ocr-error');
+                const preview = document.getElementById('po-ocr-preview');
+                const itemsBody = document.getElementById('po-ocr-items');
+                const meta = document.getElementById('po-ocr-meta');
+                const payload = document.getElementById('po-ocr-payload');
+
+                btn.addEventListener('click', async function () {
+                    err.classList.add('d-none');
+                    preview.classList.add('d-none');
+                    if (! fileInput.files.length) {
+                        err.textContent = 'Choose the filled PO reply PDF or image first.';
+                        err.classList.remove('d-none');
+                        return;
+                    }
+                    const fd = new FormData();
+                    fd.append('file', fileInput.files[0]);
+                    fd.append('_token', '{{ csrf_token() }}');
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Reading…';
+                    try {
+                        const res = await fetch(@json(route('procurement.purchase-orders.ocr-extract', $purchaseOrder)), {
+                            method: 'POST',
+                            body: fd,
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        });
+                        const data = await res.json();
+                        if (! res.ok) throw new Error(data.message || 'OCR failed');
+                        itemsBody.innerHTML = '';
+                        (data.items || []).forEach(function (row) {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = '<td>' + (row.design_no || '—') + '</td>'
+                                + '<td>' + (row.description || '—') + '</td>'
+                                + '<td>' + (row.qty ?? '—') + '</td>'
+                                + '<td>' + [row.colour, row.size].filter(Boolean).join(' / ') + '</td>';
+                            itemsBody.appendChild(tr);
+                        });
+                        meta.textContent = [
+                            data.dispatch_date ? ('Dispatch ' + data.dispatch_date) : null,
+                            data.supplier_name,
+                            data.remarks,
+                        ].filter(Boolean).join(' · ') || 'Fields extracted — review then apply.';
+                        payload.value = JSON.stringify(data);
+                        preview.classList.remove('d-none');
+                    } catch (e) {
+                        err.textContent = e.message || 'OCR failed';
+                        err.classList.remove('d-none');
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi bi-magic me-1"></i> Extract with OCR';
+                    }
+                });
+
+                document.getElementById('po-ocr-apply-form')?.addEventListener('submit', function () {
+                    if (fileInput.files.length && window.DataTransfer) {
+                        const dt = new DataTransfer();
+                        dt.items.add(fileInput.files[0]);
+                        document.getElementById('po-ocr-apply-file').files = dt.files;
+                    }
+                });
+            })();
+        </script>
+    @endcan
 </x-app-layout>

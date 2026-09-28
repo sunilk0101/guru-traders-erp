@@ -36,7 +36,7 @@ class UpdateCategoryRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.unique' => 'A category with this name already exists.',
+            'name.unique' => 'A category with this name already exists (including deleted). Restore the deleted category instead of creating a new one.',
         ];
     }
 }
