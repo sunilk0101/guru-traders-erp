@@ -49,13 +49,13 @@ class ProductController extends Controller implements HasMiddleware
             ->search($request->string('search')->toString())
             ->status($request->string('status')->toString())
             ->sort($request->string('sort')->toString(), $request->string('direction')->toString())
-            ->paginate(10)
+            ->paginate($this->perPage($request))
             ->withQueryString();
 
         return view('masters.products.index', [
             'products'   => $products,
             'categories' => Category::active()->orderBy('name')->pluck('name', 'id'),
-            'filters'    => $request->only('search', 'status', 'category_id', 'sort', 'direction'),
+            'filters'    => $request->only('search', 'status', 'category_id', 'sort', 'direction', 'per_page'),
         ]);
     }
 
@@ -317,5 +317,17 @@ class ProductController extends Controller implements HasMiddleware
 
         return $units->filter()->unique()->sort()->values()
             ->mapWithKeys(fn ($unit) => [$unit => $unit])->all();
+    }
+
+    /**
+     * L-01: 589 products at 10/page is 59 clicks. 25/50/100, remembered in
+     * the query string so Filter/Reset keep the chosen size.
+     */
+    private function perPage(Request $request): int
+    {
+        $allowed = [25, 50, 100];
+        $value = $request->integer('per_page', 25);
+
+        return in_array($value, $allowed, true) ? $value : 25;
     }
 }

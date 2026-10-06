@@ -55,11 +55,5 @@
         <button type="submit" class="btn btn-primary btn-modern w-100 mb-4">
             Sign In
         </button>
-
-        @if (Route::has('register'))
-            <p class="text-center text-muted small">
-                Don't have an account? <a href="{{ route('register') }}" class="text-primary fw-bold text-decoration-none">Create free account</a>
-            </p>
-        @endif
     </form>
 </x-guest-layout>

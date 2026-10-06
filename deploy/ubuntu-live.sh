@@ -90,6 +90,7 @@ fi
 
 php artisan storage:link || true
 php artisan migrate --force
+php artisan permission:sync --roles --no-interaction
 php artisan db:seed --force || true
 php artisan config:cache
 php artisan route:cache

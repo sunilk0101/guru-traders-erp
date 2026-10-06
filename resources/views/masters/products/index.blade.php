@@ -26,6 +26,14 @@
                 </select>
             </div>
             <div class="col-md-2">
+                <label class="form-label small text-body-secondary mb-1">Per page</label>
+                <select name="per_page" class="form-select form-select-sm">
+                    @foreach([25, 50, 100] as $size)
+                        <option value="{{ $size }}" @selected((int) ($filters['per_page'] ?? 25) === $size)>{{ $size }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="col-md-2">
                 <label class="form-label small text-body-secondary mb-1">Status</label>
                 <select name="status" class="form-select form-select-sm">
                     <option value="">All</option>

@@ -366,6 +366,15 @@ class ProductTest extends TestCase
             ->assertSee('Cotton Casual Shirt')->assertDontSee('Denim Jeans');
     }
 
+    public function test_the_product_list_accepts_a_larger_page_size(): void
+    {
+        $user = $this->actingAsRole('Super Admin');
+
+        $this->actingAs($user)->get(route('masters.products.index', ['per_page' => 50]))
+            ->assertOk()
+            ->assertSee('Per page');
+    }
+
     public function test_a_product_is_soft_deleted_and_status_toggles(): void
     {
         $user    = $this->actingAsRole('Super Admin');

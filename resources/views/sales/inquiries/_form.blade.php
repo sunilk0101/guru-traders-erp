@@ -1676,6 +1676,17 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         statusSelect.classList.remove('is-invalid');
+        const belowCost = Array.from(form.querySelectorAll('.js-margin-warning')).some(function (el) {
+            return el.style.display !== 'none' && el.textContent.trim() !== '';
+        });
+        if (belowCost && form.dataset.belowCostOk !== '1') {
+            e.preventDefault();
+            if (window.confirm('One or more lines are priced below cost. Submit anyway?')) {
+                form.dataset.belowCostOk = '1';
+                form.requestSubmit();
+            }
+            return;
+        }
         document.getElementById('mode-input').value = 'submit';
     });
 

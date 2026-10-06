@@ -28,10 +28,9 @@
         <x-ui.card title="Report Links">
             <ul class="mb-0">
                 <li><a href="{{ route('reports.outstanding.index') }}">Outstanding</a></li>
-                {{-- M-11: was a literal developer note shipped straight to end
-                     users ("More report exports can be added on this page
-                     based on demo feedback."). Dropped — it told buyers/staff
-                     nothing about their data. --}}
+                @can('inquiry.view')
+                    <li class="mt-1"><a href="{{ route('sales.inquiries.follow-ups') }}">Buyer follow-ups</a></li>
+                @endcan
             </ul>
         </x-ui.card>
     </div>
