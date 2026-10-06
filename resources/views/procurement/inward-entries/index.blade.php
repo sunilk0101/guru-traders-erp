@@ -25,7 +25,12 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-2">
+            {{-- M-10: PO Reference and Status were col-md-2 (~17% of the card
+                 width) — too narrow at a normal 1024px width to show even
+                 "All Statuses" without clipping. Widened to col-md-3; the
+                 row now runs past 12 columns so the buttons wrap onto their
+                 own line instead of being squeezed for room. --}}
+            <div class="col-md-3">
                 <label class="form-label small text-body-secondary mb-1">PO Reference</label>
                 <select name="purchase_order_id" class="form-select form-select-sm">
                     <option value="">All POs</option>
@@ -34,7 +39,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <label class="form-label small text-body-secondary mb-1">Status</label>
                 <select name="status" class="form-select form-select-sm">
                     <option value="">All Statuses</option>
@@ -44,7 +49,7 @@
                 </select>
             </div>
             <div class="col-md-2 d-flex gap-2">
-                <button class="btn btn-sm btn-secondary"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <button class="btn btn-sm btn-secondary text-nowrap d-inline-flex align-items-center flex-shrink-0"><i class="bi bi-funnel me-1"></i>Filter</button>
                 <a href="{{ route('procurement.inward-entries.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
             </div>
         </form>
@@ -102,7 +107,7 @@
                                     @can('inward-entry.delete')
                                         <x-ui.delete-form
                                             :action="route('procurement.inward-entries.destroy', $inward)"
-                                            :confirm="'Delete Goods Inward &quot;'.$inward->inward_no.'&quot;? This will recalculate the Purchase Order status.'" />
+                                            :confirm='"Delete Goods Inward \"" . $inward->inward_no . "\"? This will recalculate the Purchase Order status."' />
                                     @endcan
                                 </div>
                             </td>

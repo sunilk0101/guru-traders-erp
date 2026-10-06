@@ -55,6 +55,10 @@ class Product extends Model
             'fabric_length_mtr' => 'decimal:3',
             'fabric_width_inch' => 'decimal:3',
             'sq_mtr_per_unit'   => 'decimal:4',
+            // L-03: deliberately not in $fillable above — this is written by
+            // an importer, not by the product form, and keeping it out of
+            // mass assignment means a normal edit can never clobber it.
+            'import_meta'       => 'array',
         ];
     }
 
@@ -103,6 +107,26 @@ class Product extends Model
     protected function imageUrl(): Attribute
     {
         return Attribute::get(fn () => $this->image_path ? Storage::disk('public')->url($this->image_path) : null);
+    }
+
+    /**
+     * L-02: a lot of imported products carry their own Item Code as a
+     * "(CODE)" suffix baked into the name itself (e.g. "GIRLS KURTA WITH
+     * GAHARARA-12X18 (370AAB)"), duplicating the Item Code column shown
+     * right next to it everywhere the name appears. Stripped here at
+     * display time rather than rewritten in the database — that would need
+     * a data migration and sign-off on which of ~589 rows are safe to
+     * touch, out of scope for a read-only-verified UI fix.
+     */
+    public function displayName(): string
+    {
+        $code = (string) $this->item_group_code;
+
+        if ($code === '') {
+            return $this->name;
+        }
+
+        return preg_replace('/\s*\(' . preg_quote($code, '/') . '\)\s*$/i', '', $this->name) ?: $this->name;
     }
 
     /*

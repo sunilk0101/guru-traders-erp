@@ -79,7 +79,11 @@
         <div class="col-xl-4 col-md-6 col-12 mb-3">
             <div class="small-box text-bg-danger">
                 <div class="inner">
-                    <h3>{{ number_format($buyerOutstanding, 2) }}</h3>
+                    {{-- H-08: was a bare number; this total sums export-document
+                         amounts across all buyers, so it is always reported in
+                         INR, the company's own reporting currency, not any one
+                         buyer's transaction currency. --}}
+                    <h3>{{ \App\Support\Money::format($buyerOutstanding, 'INR') }}</h3>
                     <p>Buyer Outstanding</p>
                 </div>
                 <i class="small-box-icon bi bi-cash-stack"></i>
@@ -185,7 +189,13 @@
                     },
                     colors: ['#0d6efd', '#198754', '#fd7e14', '#6f42c1'],
                     dataLabels: { enabled: false },
-                    stroke: { curve: 'smooth', width: 2 },
+                    // M-14: 'smooth' interpolates a curve between points, which
+                    // draws fractional-looking values between two whole-number
+                    // months (e.g. a dip below Aug's count that never happened) —
+                    // wrong for integer inquiry counts. Straight segments read
+                    // exactly as the real month-to-month counts, nothing implied
+                    // in between.
+                    stroke: { curve: 'straight', width: 2 },
                     fill: {
                         type: 'gradient',
                         gradient: {

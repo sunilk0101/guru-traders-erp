@@ -42,6 +42,11 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        // H-01: '/' used to render straight to a 405 (GET wasn't wired up
+        // on the deployed route cache), so every logout ended on Symfony's
+        // raw error page instead of somewhere real. Send the user to a
+        // named route instead of a bare path so this can never again point
+        // at a URL with no GET handler behind it.
+        return redirect()->route('login');
     }
 }

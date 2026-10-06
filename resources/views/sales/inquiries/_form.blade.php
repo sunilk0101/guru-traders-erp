@@ -164,7 +164,10 @@
         <x-ui.select name="currency_id" label="Currency" required horizontal searchable
                      :options="$currencies" :selected="$val('currency_id')" hint="Pre-fills from Buyer Master." />
 
-        <x-ui.field name="exchange_rate" label="Exchange Rate (₹)" type="number" horizontal
+        {{-- H-08: was labelled "Exchange Rate (₹)" as if the rate itself were a
+             rupee amount, when it's a ratio (buyer currency → INR) — renamed
+             to say exactly what it converts to and removed the misleading ₹. --}}
+        <x-ui.field name="exchange_rate" label="Exchange Rate (to INR)" type="number" horizontal
                     :value="$val('exchange_rate')" placeholder="e.g. 88.50" />
 
         <x-ui.field name="expected_shipment_date" label="Expected Shipment Date" type="date" horizontal
@@ -243,13 +246,15 @@
     </button>
 </x-ui.form-section>
 
+{{-- M-06: no longer required here — see InquiryRequest for why. Order
+     Confirmation still requires both once the deal is actually confirmed. --}}
 <x-ui.form-section title="Delivery & Packing Details" icon="bi-box-seam"
-                   subtitle="Pre-fills from Order Format · editable per inquiry. Reference images come from the format (print defaults).">
+                   subtitle="Optional at Inquiry stage; pre-fills from Order Format when it has defaults, editable per inquiry. Required once confirmed to an Order Confirmation. Reference images come from the format (print defaults).">
     <div class="form-stack">
-        <x-ui.textarea name="delivery_details" label="Delivery Details" required horizontal
+        <x-ui.textarea name="delivery_details" label="Delivery Details" horizontal
                        rows="3" :value="$val('delivery_details')" />
 
-        <x-ui.textarea name="packing_details" label="Packing Details" required horizontal
+        <x-ui.textarea name="packing_details" label="Packing Details" horizontal
                        rows="3" :value="$val('packing_details')" />
 
         <div class="row form-line">
@@ -272,14 +277,37 @@
     </div>
 </x-ui.form-section>
 
+{{-- M-12: Status dropdown + Save Draft + Submit used to be three controls
+     that could disagree — Save Draft silently forced Status back to
+     'draft' even if you'd picked something else, and Submit left Status
+     on 'draft' if you never touched the dropdown, saving a "submitted"
+     inquiry that still read as a draft. Status is now the single source
+     of truth for what gets saved either way; Save Draft only relaxes
+     which fields are required, and Submit refuses to go out with Status
+     still on Draft instead of silently accepting it (see the submit
+     handler below). --}}
 <div class="form-actions d-flex flex-wrap gap-2 align-items-center">
     <div class="me-auto">
         <label class="form-label small text-body-secondary mb-1">Status</label>
+        @php
+            // H-06: 'Converted to OC' is set by OrderConfirmationService once
+            // an actual Order Confirmation exists for every line (see
+            // InquiryRequest::withValidator, which also rejects it
+            // server-side) — it is not a stage a user picks by hand, or a
+            // brand-new Draft inquiry could be saved as "Converted to OC"
+            // with no OC behind it at all. Only offered here when the
+            // inquiry is already in that state, so its own status line still
+            // renders correctly on the Edit screen.
+            $selectableStatuses = ($isEdit && $inquiry->status === 'converted_to_oc')
+                ? $statuses
+                : collect($statuses)->except('converted_to_oc');
+        @endphp
         <select name="status" id="status-select" class="form-select form-select-sm">
-            @foreach($statuses as $value => $label)
+            @foreach($selectableStatuses as $value => $label)
                 <option value="{{ $value }}" @selected($val('status', 'draft') === $value)>{{ $label }}</option>
             @endforeach
         </select>
+        <div class="form-text mb-0">This is what gets saved — Save Draft only skips required-field checks, it does not change Status.</div>
     </div>
 
     <a href="{{ $isEdit ? route('sales.inquiries.show', $inquiry) : route('sales.inquiries.index') }}"
@@ -380,6 +408,17 @@ document.addEventListener('DOMContentLoaded', function () {
      * the buyer/category 'change' listeners below, never from init.
      */
     function filterOptionsByCategory(selectEl, allowedIds, clearIfInvalid) {
+        // C-04: guard against a non-<select> match. TomSelect's rendered
+        // wrapper <div> copies the original <select>'s class list onto
+        // itself (so it keeps the same Bootstrap sizing/spacing classes),
+        // which means a plain '.js-group-category' selector matches BOTH
+        // the real (now-hidden) <select> and the wrapper div sitting next
+        // to it. selectEl.options is undefined on the div, so
+        // Array.from(undefined) used to throw "undefined is not iterable"
+        // and aborted the whole buyer-change handler — this is what broke
+        // Agent/Commission/Currency prefill on Buyer selection.
+        if (! selectEl || ! selectEl.options) return;
+
         Array.from(selectEl.options).forEach(function (opt) {
             if (opt.value === '') return;
             opt.hidden = allowedIds && allowedIds.length ? ! allowedIds.includes(Number(opt.value)) : false;
@@ -393,7 +432,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const buyer = buyers[buyerSelect.value];
         const allowed = buyer ? buyer.categories : null;
         filterOptionsByCategory(categorySelect, allowed, clearIfInvalid);
-        itemsWrap.querySelectorAll('.js-group-category').forEach(function (sel) {
+        // Scope to real <select> elements only — see the guard note in
+        // filterOptionsByCategory() above for why '.js-group-category'
+        // alone (without the `select` tag qualifier) is unsafe here.
+        itemsWrap.querySelectorAll('select.js-group-category').forEach(function (sel) {
             filterOptionsByCategory(sel, allowed, clearIfInvalid);
         });
     }
@@ -1182,6 +1224,25 @@ document.addEventListener('DOMContentLoaded', function () {
         const fobUnit = parseFloat(fobUnitEl?.value) || 0;
         if (totalFobEl) totalFobEl.value = (fobUnit && qty) ? (fobUnit * qty).toFixed(2) : '';
 
+        // H-07: no signal at all previously stopped a price below cost from
+        // saving silently (e.g. price 0.01 against cost 300.00 — a 299.99
+        // per-unit loss the pipeline reports never showed). This is a
+        // warning, not a hard block: some lines are genuinely quoted at a
+        // loss on purpose (loss-leader, sample, buyer-driven price), and a
+        // silent submit-block with no override path would just get in the
+        // sales team's way. Compared against finalCost (cost + BOM), the
+        // true all-in cost, not just the raw Cost Price field alone.
+        const priceInput = itemEl.querySelector('.js-price');
+        const marginWarning = itemEl.querySelector('.js-margin-warning');
+        const belowCost = price > 0 && finalCost > 0 && price < finalCost;
+        if (priceInput) priceInput.classList.toggle('is-invalid', belowCost);
+        if (marginWarning) {
+            marginWarning.style.display = belowCost ? '' : 'none';
+            marginWarning.textContent = belowCost
+                ? 'Below cost by ' + (finalCost - price).toFixed(2) + '/unit'
+                : '';
+        }
+
         syncBomDropdown(itemEl);
         scheduleFobQuote(itemEl, finalCost);
     }
@@ -1573,12 +1634,31 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* --------------------------- Mode / status buttons --------------------------- */
 
+    // M-12: Save Draft used to force Status back to 'draft' even if the
+    // user had deliberately picked something else — a Quote Sent inquiry
+    // saved with Save Draft (to skip a required field, say) would silently
+    // lose its real status. Save Draft now only relaxes which fields are
+    // required (via mode=draft, see InquiryRequest); Status is left exactly
+    // as chosen, defaulting to 'draft' only because that's the dropdown's
+    // own default for a brand-new inquiry.
     document.getElementById('btn-save-draft').addEventListener('click', function () {
         document.getElementById('mode-input').value = 'draft';
-        document.getElementById('status-select').value = 'draft';
     });
 
-    document.getElementById('btn-submit').addEventListener('click', function () {
+    // M-12: Submit used to accept Status still sitting on 'draft' without
+    // comment, producing an inquiry that was fully validated as "submitted"
+    // but still read as a Draft everywhere else in the app (pipeline chart,
+    // status badges). Block that specific combination and point the user at
+    // the dropdown instead of guessing a status on their behalf.
+    document.getElementById('btn-submit').addEventListener('click', function (e) {
+        const statusSelect = document.getElementById('status-select');
+        if (statusSelect.value === 'draft') {
+            e.preventDefault();
+            statusSelect.classList.add('is-invalid');
+            statusSelect.focus();
+            return;
+        }
+        statusSelect.classList.remove('is-invalid');
         document.getElementById('mode-input').value = 'submit';
     });
 

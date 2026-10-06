@@ -34,7 +34,7 @@
                 </select>
             </div>
             <div class="col-md-3 d-flex gap-2">
-                <button class="btn btn-sm btn-secondary"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <button class="btn btn-sm btn-secondary text-nowrap d-inline-flex align-items-center flex-shrink-0"><i class="bi bi-funnel me-1"></i>Filter</button>
                 <a href="{{ route('masters.buyers.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
             </div>
         </form>
@@ -74,7 +74,8 @@
                             <td class="text-center text-body-secondary">{{ $buyer->categories_count }}</td>
                             <td>
                                 @can('buyer.edit')
-                                    <form action="{{ route('masters.buyers.toggle-status', $buyer) }}" method="POST">
+                                    <form action="{{ route('masters.buyers.toggle-status', $buyer) }}" method="POST" class="js-confirm"
+                                          data-confirm="{{ ($buyer->status === 'active' ? 'Deactivate' : 'Activate') . ' buyer "' . $buyer->company_name . '"?' }}">
                                         @csrf @method('PATCH')
                                         <button type="submit" class="btn btn-sm p-0 border-0 bg-transparent"
                                                 data-bs-toggle="tooltip" title="Click to toggle">
@@ -102,7 +103,7 @@
                                     @can('buyer.delete')
                                         <x-ui.delete-form
                                             :action="route('masters.buyers.destroy', $buyer)"
-                                            :confirm="'Delete buyer &quot;'.$buyer->company_name.'&quot;?'" />
+                                            :confirm='"Delete buyer \"" . $buyer->company_name . "\"?"' />
                                     @endcan
                                 </div>
                             </td>

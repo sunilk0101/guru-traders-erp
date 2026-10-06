@@ -40,10 +40,13 @@
                     @if(! empty($ctx['buyer']))
                         {{ $ctx['buyer']['display_code'] }} — {{ $ctx['buyer']['company_name'] }}
                         <div class="fw-normal text-body-secondary">
+                            {{-- M-11: every seeded Payment Term whose name states a day
+                                 count ('30 Days', '45 Days', ...) has that exact same
+                                 number in payment_term_days — the day suffix only ever
+                                 repeated what the name already said ('30 Days (30
+                                 days)'), so it's dropped rather than kept "just in
+                                 case" a future term's name and days genuinely differ. --}}
                             {{ $ctx['buyer']['payment_term'] ?? 'No payment term' }}
-                            @if(($ctx['buyer']['payment_term_days'] ?? null) !== null)
-                                ({{ $ctx['buyer']['payment_term_days'] }} days)
-                            @endif
                             @if($ctx['buyer']['advance_percent'] !== null)
                                 · Adv {{ $ctx['buyer']['advance_percent'] }}%
                             @endif
@@ -63,7 +66,8 @@
                         $amt = $ctx['export_document']['amount'] ?? ($ctx['order_confirmation']['amount'] ?? null);
                         $cur = $ctx['export_document']['currency'] ?? ($ctx['order_confirmation']['currency'] ?? '');
                     @endphp
-                    {{ $amt !== null ? number_format((float) $amt, 2).($cur ? ' '.$cur : '') : '—' }}
+                    {{-- H-08: same money() convention as the rest of the app now --}}
+                    {{ $amt !== null ? \App\Support\Money::format($amt, $cur ?: null) : '—' }}
                 </div>
             </div>
 
@@ -251,7 +255,22 @@
                                 <td class="text-end">{{ ($line['client_price'] ?? null) !== null ? number_format((float) $line['client_price'], 2) : '—' }}</td>
                                 <td class="text-end">{{ ($line['our_cost'] ?? null) !== null ? number_format((float) $line['our_cost'], 2) : '—' }}</td>
                                 <td class="text-end">
-                                    @if(($line['unit_profit'] ?? null) !== null)
+                                    {{-- H-07: headline the profit from the price actually
+                                         quoted (actual_unit_profit), not the Markup master's
+                                         suggested arithmetic (unit_profit) — a line quoted
+                                         below cost now shows red here instead of a healthy
+                                         markup-derived profit that was never really earned. --}}
+                                    @if(($line['actual_unit_profit'] ?? null) !== null)
+                                        <span class="{{ $line['actual_unit_profit'] < 0 ? 'text-danger fw-semibold' : '' }}">
+                                            {{ number_format((float) $line['actual_unit_profit'], 2) }}
+                                        </span>
+                                        @if(($line['actual_line_profit'] ?? null) !== null)
+                                            <div class="{{ $line['actual_line_profit'] < 0 ? 'text-danger' : 'text-body-secondary' }}">line {{ number_format((float) $line['actual_line_profit'], 2) }}</div>
+                                        @endif
+                                        @if(($line['unit_profit'] ?? null) !== null)
+                                            <div class="text-body-secondary">markup suggests {{ number_format((float) $line['unit_profit'], 2) }}</div>
+                                        @endif
+                                    @elseif(($line['unit_profit'] ?? null) !== null)
                                         {{ number_format((float) $line['unit_profit'], 2) }}
                                         @if(($line['line_profit'] ?? null) !== null)
                                             <div class="text-body-secondary">line {{ number_format((float) $line['line_profit'], 2) }}</div>

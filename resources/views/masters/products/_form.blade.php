@@ -42,13 +42,18 @@
                 Item Group Code <span class="req">*</span>
             </label>
             <div class="col-sm-8 col-lg-9">
-                <input type="text" id="item_group_code" name="item_group_code" maxlength="5" required
+                {{-- H-03: the rule said 5 but imported data (370AAB / 370AAA) already
+                     has 6-character codes — maxlength, this hint, and the
+                     FormRequest rule below are all aligned to 6, the real
+                     longest code across all 589 imported products, not a
+                     guess. --}}
+                <input type="text" id="item_group_code" name="item_group_code" maxlength="6" required
                        value="{{ old('item_group_code', $product?->item_group_code) }}"
                        class="form-control text-uppercase js-unique-check @error('item_group_code') is-invalid @enderror"
                        data-field="item_group_code" placeholder="PRD01" autocomplete="off">
                 @error('item_group_code')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                 {{-- Written by JS only once a code has actually been checked. --}}
-                <div class="form-text js-unique-feedback">Up to 5 characters. Must be unique.</div>
+                <div class="form-text js-unique-feedback">Up to 6 characters. Must be unique.</div>
             </div>
         </div>
 
@@ -63,6 +68,12 @@
                        class="form-control js-unique-check @error('name') is-invalid @enderror"
                        data-field="name" placeholder="Cotton Casual Shirt" autocomplete="off">
                 @error('name')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                {{-- L-02: several imported products have their own Item Group Code
+                     typed straight into the name (e.g. "... (370AAB)"), duplicating
+                     the field right above. The Item Group Code field already prints
+                     next to the name everywhere, so it does not need to live inside
+                     it too. --}}
+                <div class="form-text">Don't repeat the Item Group Code here — it already shows alongside the name everywhere.</div>
                 <div class="form-text js-unique-feedback"></div>
             </div>
         </div>
@@ -381,16 +392,27 @@
                      :selected="$product?->status ?? 'active'"
                      :placeholder="false" />
 
+        {{-- L-07: Description, Remarks and Comments used to read as three
+             identical "optional notes" boxes with no way to tell them apart —
+             imported data already mixes what belongs in which. Comments is
+             kept rather than dropped (existing products already have real
+             data in it, and removing it here would only hide that data, not
+             the underlying duplication), but relabelled as the legacy one so
+             new entries have a single obvious place — Internal Notes — to
+             go instead. --}}
         {{-- Col Y --}}
         <x-ui.textarea name="description" label="Description" :value="$product?->description"
-                       horizontal rows="2" placeholder="100% Cotton, 180 GSM" />
+                       horizontal rows="2" placeholder="100% Cotton, 180 GSM"
+                       hint="Product characteristics — reference text for anyone looking the product up." />
 
         {{-- Col AA --}}
-        <x-ui.textarea name="remarks" label="Remarks" :value="$product?->remarks"
-                       horizontal rows="2" placeholder="Optional notes" />
+        <x-ui.textarea name="remarks" label="Internal Notes" :value="$product?->remarks"
+                       horizontal rows="2" placeholder="Optional notes"
+                       hint="Internal only. Use this field for new notes." />
 
-        <x-ui.textarea name="comments" label="Comments" :value="$product?->comments"
-                       horizontal rows="2" placeholder="Optional comments" />
+        <x-ui.textarea name="comments" label="Comments (legacy)" :value="$product?->comments"
+                       horizontal rows="2" placeholder="Optional comments"
+                       hint="Older field, kept for existing data — prefer Internal Notes above for anything new." />
 
     </div>
 </x-ui.form-section>
@@ -474,49 +496,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     /* ------------------------------------------------------------------ *
-     * Export incentive toggles — Drawback, RoSCTL, RoDTEP each get an
-     * "Applicable" switch. Off disables and clears that row's inputs; a
-     * blank row already means "not applicable" to the server (see the
-     * section subtitle), so switching off is what actually posts nothing
-     * for that scheme.
-     * ------------------------------------------------------------------ */
-    document.querySelectorAll('.js-incentive-toggle').forEach(function (toggle) {
-        const scheme = toggle.dataset.scheme;
-        const fields = document.querySelectorAll('[data-incentive-field="' + scheme + '"]');
-        const fobBasisId = @json(
-            collect($calculationBases)->search(fn ($label) => str_contains(strtolower((string) $label), 'fob'))
-                ?: collect($calculationBases)->keys()->first()
-        );
-
-        function apply() {
-            fields.forEach(function (field) {
-                field.disabled = ! toggle.checked;
-
-                if (! toggle.checked) {
-                    if (field.tomselect) {
-                        field.tomselect.clear(true);
-                        field.tomselect.disable();
-                    } else {
-                        field.value = '';
-                    }
-                } else if (field.tomselect) {
-                    field.tomselect.enable();
-                    // Default Calculated On → FOB Value (rate side of the claim rule).
-                    if (field.name && field.name.indexOf('[calculation_basis_id]') !== -1 && ! field.value && fobBasisId) {
-                        field.tomselect.setValue(String(fobBasisId), true);
-                    }
-                } else if (field.name && field.name.indexOf('[calculation_basis_id]') !== -1 && ! field.value && fobBasisId) {
-                    field.value = String(fobBasisId);
-                }
-            });
-            renderIncentiveClaims();
-        }
-
-        toggle.addEventListener('change', apply);
-        apply();
-    });
-
-    /* ------------------------------------------------------------------ *
      * Live claim preview: Rate% × FOB vs Cap × PCS → lower.
      * ------------------------------------------------------------------ */
     const sampleFob = document.getElementById('incentive-sample-fob');
@@ -597,6 +576,50 @@ document.addEventListener('DOMContentLoaded', function () {
         el.addEventListener('change', renderIncentiveClaims);
     });
     renderIncentiveClaims();
+
+    /* ------------------------------------------------------------------ *
+     * Export incentive toggles — Drawback, RoSCTL, RoDTEP each get an
+     * "Applicable" switch. Off disables and clears that row's inputs; a
+     * blank row already means "not applicable" to the server (see the
+     * section subtitle), so switching off is what actually posts nothing
+     * for that scheme.
+     * ------------------------------------------------------------------ */
+    document.querySelectorAll('.js-incentive-toggle').forEach(function (toggle) {
+        const scheme = toggle.dataset.scheme;
+        const fields = document.querySelectorAll('[data-incentive-field="' + scheme + '"]');
+        const fobBasisId = @json(
+            collect($calculationBases)->search(fn ($label) => str_contains(strtolower((string) $label), 'fob'))
+                ?: collect($calculationBases)->keys()->first()
+        );
+
+        function apply() {
+            fields.forEach(function (field) {
+                field.disabled = ! toggle.checked;
+
+                if (! toggle.checked) {
+                    if (field.tomselect) {
+                        field.tomselect.clear(true);
+                        field.tomselect.disable();
+                    } else {
+                        field.value = '';
+                    }
+                } else if (field.tomselect) {
+                    field.tomselect.enable();
+                    // Default Calculated On → FOB Value (rate side of the claim rule).
+                    if (field.name && field.name.indexOf('[calculation_basis_id]') !== -1 && ! field.value && fobBasisId) {
+                        field.tomselect.setValue(String(fobBasisId), true);
+                    }
+                } else if (field.name && field.name.indexOf('[calculation_basis_id]') !== -1 && ! field.value && fobBasisId) {
+                    field.value = String(fobBasisId);
+                }
+            });
+            renderIncentiveClaims();
+        }
+
+        toggle.addEventListener('change', apply);
+        apply();
+    });
+
 
     /* ------------------------------------------------------------------ *
      * "Tell me if a code / name is already taken" (sheet cols B and C).

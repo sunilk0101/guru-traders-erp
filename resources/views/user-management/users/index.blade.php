@@ -35,7 +35,7 @@
                 </select>
             </div>
             <div class="col-md-3 d-flex gap-2">
-                <button class="btn btn-sm btn-secondary"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <button class="btn btn-sm btn-secondary text-nowrap d-inline-flex align-items-center flex-shrink-0"><i class="bi bi-funnel me-1"></i>Filter</button>
                 <a href="{{ route('user-management.users.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
             </div>
         </form>
@@ -78,7 +78,8 @@
                                     @if($user->isProtected() || $user->is(auth()->user()))
                                         <x-ui.status-badge :status="$user->status" />
                                     @else
-                                        <form action="{{ route('user-management.users.toggle-status', $user) }}" method="POST">
+                                        <form action="{{ route('user-management.users.toggle-status', $user) }}" method="POST" class="js-confirm"
+                                            data-confirm="{{ ($user->status ? 'Deactivate' : 'Activate') . ' user "' . $user->name . '"?' }}">
                                             @csrf @method('PATCH')
                                             <button type="submit" class="btn btn-sm p-0 border-0 bg-transparent"
                                                     data-bs-toggle="tooltip" title="Click to toggle">
@@ -107,7 +108,7 @@
                                     @can('user.delete')
                                         <x-ui.delete-form
                                             :action="route('user-management.users.destroy', $user)"
-                                            :confirm="'Delete user &quot;'.$user->name.'&quot;?'"
+                                            :confirm='"Delete user \"" . $user->name . "\"?"'
                                             :disabled="$user->isProtected() || $user->is(auth()->user())"
                                             :disabled-reason="$user->isProtected() ? 'Protected system account' : 'You cannot delete yourself'" />
                                     @endcan

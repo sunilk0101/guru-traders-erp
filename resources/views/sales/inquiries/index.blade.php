@@ -57,7 +57,7 @@
                 </select>
             </div>
             <div class="col-md-2 d-flex gap-2">
-                <button class="btn btn-sm btn-secondary"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <button class="btn btn-sm btn-secondary text-nowrap d-inline-flex align-items-center flex-shrink-0"><i class="bi bi-funnel me-1"></i>Filter</button>
                 <a href="{{ route('sales.inquiries.index') }}" class="btn btn-sm btn-outline-secondary">Reset</a>
             </div>
         </form>
@@ -73,7 +73,7 @@
                         <th>Order Format</th>
                         <th class="text-end">Amount</th>
                         <th style="width:130px">Status</th>
-                        <th class="text-end" style="width:150px">Actions</th>
+                        <th class="text-end sticky-actions-col" style="width:150px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -84,11 +84,12 @@
                             <td>{{ $inquiry->buyer?->company_name }} <span class="text-body-secondary">({{ $inquiry->buyer?->display_code }})</span></td>
                             <td>{{ $inquiry->category?->name ?? '—' }}</td>
                             <td>{{ $inquiry->format?->name ?? '—' }}</td>
-                            <td class="text-end">{{ number_format($inquiry->totalAmount(), 2) }}</td>
+                            {{-- H-08: currency code + grouped amount, not a bare number --}}
+                            <td class="text-end">{{ \App\Support\Money::format($inquiry->totalAmount(), $inquiry->currency?->iso_code) }}</td>
                             <td>
                                 <span class="badge text-bg-{{ $inquiry->statusColor() }}">{{ $inquiry->statusLabel() }}</span>
                             </td>
-                            <td class="text-end">
+                            <td class="text-end sticky-actions-col">
                                 <div class="btn-group btn-group-sm">
                                     @can('inquiry.view')
                                         <a href="{{ route('sales.inquiries.show', $inquiry) }}"
@@ -113,7 +114,7 @@
                                     @can('inquiry.delete')
                                         <x-ui.delete-form
                                             :action="route('sales.inquiries.destroy', $inquiry)"
-                                            :confirm="'Delete inquiry &quot;'.$inquiry->inquiry_no.'&quot;? This cannot be undone.'" />
+                                            :confirm='"Delete inquiry \"" . $inquiry->inquiry_no . "\"? This cannot be undone."' />
                                     @endcan
                                 </div>
                             </td>

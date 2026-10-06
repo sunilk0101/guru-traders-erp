@@ -19,7 +19,7 @@
                         <th>Description</th>
                         <th class="text-center" style="width:110px">Permissions</th>
                         <th class="text-center" style="width:90px">Users</th>
-                        <th class="text-end" style="width:150px">Actions</th>
+                        <th class="text-end sticky-actions-col" style="width:150px">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -47,7 +47,7 @@
                             <td class="text-center">
                                 <span class="badge text-bg-light border">{{ $role->users_count }}</span>
                             </td>
-                            <td class="text-end">
+                            <td class="text-end sticky-actions-col">
                                 <div class="btn-group btn-group-sm">
                                     @can('role.view')
                                         <a href="{{ route('user-management.roles.show', $role) }}"
@@ -64,7 +64,7 @@
                                     @can('role.delete')
                                         <x-ui.delete-form
                                             :action="route('user-management.roles.destroy', $role)"
-                                            :confirm="'Delete role &quot;'.$role->name.'&quot;?'"
+                                            :confirm='"Delete role \"" . $role->name . "\"?"'
                                             :disabled="$isSystem || $role->users_count > 0"
                                             :disabled-reason="$isSystem ? 'System role' : 'Role is assigned to '.$role->users_count.' user(s)'" />
                                     @endcan

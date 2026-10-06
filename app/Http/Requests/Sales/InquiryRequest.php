@@ -74,8 +74,16 @@ abstract class InquiryRequest extends FormRequest
 
             'expected_shipment_date' => ['nullable', 'date'],
 
-            'delivery_details' => [$requiredUnlessDraft, 'nullable', 'string'],
-            'packing_details'  => [$requiredUnlessDraft, 'nullable', 'string'],
+            // M-06: was required even at the Inquiry stage, when a buyer's
+            // exact delivery/packing terms are often still unsettled and the
+            // Order Format has no defaults to pre-fill — the only inquiry in
+            // production has Packing Details = "fagatwfsrwfawe", someone
+            // mashing keys to get past a required field that had nothing
+            // real to put in it yet. Order Confirmation (see
+            // OrderConfirmationRequest) still requires both once the deal is
+            // actually confirmed, which is the point these need to be firm.
+            'delivery_details' => ['nullable', 'string'],
+            'packing_details'  => ['nullable', 'string'],
             'remarks'          => ['nullable', 'string', 'max:2000'],
 
             'status' => ['required', Rule::in(array_keys(Inquiry::STATUSES))],
@@ -133,7 +141,35 @@ abstract class InquiryRequest extends FormRequest
             }
 
             $this->validateItemUnits($validator);
+            $this->guardConvertedToOcStatus($validator);
         });
+    }
+
+    /**
+     * H-06: 'Converted to OC' is meant to be system-set only, the moment
+     * OrderConfirmationService confirms every line has a real Order
+     * Confirmation behind it (see app/Services/Sales/OrderConfirmationService.php)
+     * — not a stage a user can jump to from the Status dropdown on a Draft
+     * inquiry with no OC at all. The form already hides the option unless
+     * the inquiry is already converted (see _form.blade.php), but the
+     * dropdown is just HTML; this is the rule that actually holds under a
+     * replayed/edited request.
+     */
+    private function guardConvertedToOcStatus(Validator $validator): void
+    {
+        if ($this->input('status') !== 'converted_to_oc') {
+            return;
+        }
+
+        $inquiry = $this->route('inquiry');
+        $alreadyConverted = $inquiry instanceof Inquiry && $inquiry->status === 'converted_to_oc';
+
+        if (! $alreadyConverted) {
+            $validator->errors()->add(
+                'status',
+                'Converted to OC is set automatically once an Order Confirmation exists for every item — it cannot be chosen by hand.'
+            );
+        }
     }
 
     /**

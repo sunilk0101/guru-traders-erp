@@ -200,8 +200,12 @@
                     horizontal maxlength="30" placeholder="+44 987654321" />
 
         {{-- Col H — see the docblock above for why this is now rendered. --}}
+        {{-- M-15: matches BuyerRequest's existing server-side GSTIN regex —
+             see the Supplier form for the same client-side gap being closed. --}}
         <x-ui.field name="gst_vat_no" label="GST / VAT No." :value="old('gst_vat_no', $buyer?->gst_vat_no)"
                     horizontal maxlength="15" placeholder="33ABCDE1234F1Z5"
+                    pattern="[0-9]{2}[A-Za-z]{5}[0-9]{4}[A-Za-z][0-9A-Za-z]Z[0-9A-Za-z]"
+                    title="15-character GSTIN, e.g. 33ABCDE1234F1Z5"
                     class="font-monospace text-uppercase" />
 
     </div>

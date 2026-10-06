@@ -50,7 +50,12 @@
             <dd class="col-sm-9">{{ $inquiry->category?->name ?? '—' }}</dd>
 
             <dt class="col-sm-3 text-body-secondary fw-normal">Default Order Format</dt>
-            <dd class="col-sm-9">{{ $inquiry->format?->name ?? '—' }} <span class="text-body-secondary">({{ $inquiry->format?->module }})</span></dd>
+            {{-- M-11: "(po)" was DocumentFormat's internal `module` seed value
+                 (DocumentFormatSeeder) leaking straight into the UI — it has
+                 no user-facing label anywhere in the app and nothing else
+                 shows it, so it's dropped here rather than invented a label
+                 for an implementation detail nobody needs to see. --}}
+            <dd class="col-sm-9">{{ $inquiry->format?->name ?? '—' }}</dd>
 
             <dt class="col-sm-3 text-body-secondary fw-normal">Agent</dt>
             <dd class="col-sm-9">
@@ -142,8 +147,9 @@
                 @if($inquiry->items->isNotEmpty())
                     <tfoot>
                         <tr class="fw-semibold table-light">
-                            <td colspan="10" class="text-end">Total</td>
-                            <td class="text-end">{{ number_format($inquiry->totalAmount(), 2) }}</td>
+                            {{-- H-08: currency code + grouped amount on the summary total, not a bare number --}}
+                            <td colspan="10" class="text-end">Total ({{ $inquiry->currency?->iso_code ?? 'INR' }})</td>
+                            <td class="text-end">{{ \App\Support\Money::format($inquiry->totalAmount(), $inquiry->currency?->iso_code) }}</td>
                             <td></td>
                         </tr>
                     </tfoot>

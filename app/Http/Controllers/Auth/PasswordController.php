@@ -24,6 +24,8 @@ class PasswordController extends Controller
             'password' => Hash::make($validated['password']),
         ]);
 
-        return back()->with('status', 'password-updated');
+        // M-07: see ProfileController::update() — same switch to the app's
+        // own session('success') alert convention.
+        return back()->with('success', 'Password updated.');
     }
 }
