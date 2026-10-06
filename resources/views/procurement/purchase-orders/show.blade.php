@@ -115,6 +115,7 @@
                 <thead class="table-light">
                     <tr>
                         <th>#</th>
+                        <th style="width:56px">Photo</th>
                         <th>Design No.</th>
                         <th>Product / HSN</th>
                         <th>Colour / Size</th>
@@ -129,6 +130,14 @@
                     @forelse($purchaseOrder->items as $item)
                         <tr>
                             <td>{{ $loop->iteration }}</td>
+                            <td>
+                                @if($item->image_url)
+                                    <img src="{{ $item->image_url }}" alt="{{ $item->design_no }}"
+                                         class="rounded border" style="width:40px;height:40px;object-fit:cover">
+                                @else
+                                    <span class="text-body-secondary">—</span>
+                                @endif
+                            </td>
                             <td class="fw-semibold">{{ $item->design_no ?: '—' }}</td>
                             <td>
                                 {{ $item->product?->name ?? '—' }}
@@ -159,13 +168,13 @@
                             </td>
                         </tr>
                     @empty
-                        <x-ui.empty-state :colspan="9" icon="bi-box-seam" title="No items" />
+                        <x-ui.empty-state :colspan="10" icon="bi-box-seam" title="No items" />
                     @endforelse
                 </tbody>
                 @if($purchaseOrder->items->isNotEmpty())
                     <tfoot>
                         <tr class="fw-semibold table-light">
-                            <td colspan="6" class="text-end">Total</td>
+                            <td colspan="7" class="text-end">Total</td>
                             <td class="text-end">{{ $purchaseOrder->items->sum('qty') }}</td>
                             <td class="text-end">{{ number_format($purchaseOrder->totalAmount(), 2) }}</td>
                             <td></td>

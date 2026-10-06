@@ -190,6 +190,7 @@
                     <table class="table table-sm mb-0 align-middle">
                         <thead>
                             <tr class="small text-nowrap">
+                                <th style="width:3.5rem">Photo</th>
                                 <th>Trim / Accessory</th>
                                 <th style="width:6rem">Size</th>
                                 <th>Description</th>
@@ -210,14 +211,19 @@
                                     $bRemarks = $bIsArr ? ($bom['remarks'] ?? '') : $bom->remarks;
                                     $bCustom = $bIsArr ? (bool) ($bom['is_custom'] ?? true) : (bool) $bom->is_custom;
                                     $bTotal = is_numeric($bQty) && is_numeric($bRate) ? number_format((float)$bQty * (float)$bRate, 2, '.', '') : '';
+                                    $bImagePath = $bIsArr ? ($bom['image_path'] ?? '') : ($bom->image_path ?? '');
+                                    $bImageUrl = $bIsArr ? ($bom['image_url'] ?? '') : ($bom->image_url ?? '');
                                 @endphp
-                                <tr class="inquiry-bom-row" data-bom-row data-is-custom="{{ $bCustom ? '1' : '0' }}">
+                                <tr class="inquiry-bom-row" data-bom-row data-is-custom="{{ $bCustom ? '1' : '0' }}" data-image-url="{{ $bImageUrl }}">
                                     <td>
-                                        <div class="d-flex align-items-center gap-1">
-                                            <img class="js-trim-thumb rounded border bg-body-tertiary d-none flex-shrink-0" alt=""
-                                                 style="width:22px;height:22px;object-fit:cover">
-                                            <input type="text" class="form-control form-control-sm js-bom-name" maxlength="200" value="{{ $bName }}">
-                                        </div>
+                                        <img class="js-trim-thumb rounded border bg-body-tertiary {{ $bImageUrl ? '' : 'd-none' }} flex-shrink-0" alt=""
+                                             src="{{ $bImageUrl }}"
+                                             style="width:36px;height:36px;object-fit:cover">
+                                        <input type="hidden" class="js-bom-image-url" value="{{ $bImageUrl }}">
+                                        <input type="hidden" class="js-bom-image-path" value="{{ $bImagePath }}">
+                                    </td>
+                                    <td>
+                                        <input type="text" class="form-control form-control-sm js-bom-name" maxlength="200" value="{{ $bName }}">
                                     </td>
                                     <td><input type="text" class="form-control form-control-sm js-bom-size" maxlength="60" value="{{ $bSize }}"></td>
                                     <td><input type="text" class="form-control form-control-sm js-bom-remarks" maxlength="500" value="{{ $bRemarks }}"></td>

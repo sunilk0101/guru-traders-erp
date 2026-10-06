@@ -6,7 +6,9 @@ use App\Models\NumberSeries;
 use App\Models\PurchaseOrder;
 use App\Services\NumberSeriesService;
 use App\Support\FinancialYear;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class PurchaseOrderService
 {
@@ -86,9 +88,17 @@ class PurchaseOrderService
      */
     private function syncItems(PurchaseOrder $po, array $items): void
     {
+        $previousPaths = $po->items()->pluck('image_path')->filter()->all();
+        $keptPaths = [];
+
         $po->items()->delete();
 
         foreach (array_values($items) as $index => $itemData) {
+            $imagePath = $this->resolveItemImage($itemData);
+            if ($imagePath) {
+                $keptPaths[] = $imagePath;
+            }
+
             $item = $po->items()->create([
                 'order_confirmation_item_id' => $itemData['order_confirmation_item_id'] ?? null,
                 'sort_order'                 => $index,
@@ -98,6 +108,7 @@ class PurchaseOrderService
                 'unit'                        => $itemData['unit'] ?? null,
                 'cost_price'                  => $itemData['cost_price'] ?? null,
                 'remarks'                     => $itemData['remarks'] ?? null,
+                'image_path'                  => $imagePath,
                 'custom_values'               => array_filter((array) ($itemData['custom'] ?? []), fn ($v) => filled($v)) ?: null,
             ]);
 
@@ -132,6 +143,25 @@ class PurchaseOrderService
                 'amount' => round($qty * (float) ($itemData['cost_price'] ?? 0), 2),
             ]);
         }
+
+        foreach (array_diff($previousPaths, $keptPaths) as $stale) {
+            Storage::disk('public')->delete($stale);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $itemData
+     */
+    private function resolveItemImage(array $itemData): ?string
+    {
+        $upload = $itemData['image'] ?? null;
+        if ($upload instanceof UploadedFile) {
+            return $upload->store('purchase-order-items', 'public');
+        }
+
+        $existing = $itemData['existing_image_path'] ?? null;
+
+        return filled($existing) ? (string) $existing : null;
     }
 
     /**

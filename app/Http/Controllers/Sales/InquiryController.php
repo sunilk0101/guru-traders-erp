@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Sales\StoreInquiryRequest;
 use App\Http\Requests\Sales\UpdateInquiryRequest;
 use App\Models\Agent;
+use App\Models\Bom;
 use App\Models\Buyer;
 use App\Models\Category;
 use App\Models\Currency;
@@ -273,7 +274,7 @@ class InquiryController extends Controller implements HasMiddleware
         // trailing "(CODE)" is stripped from the name before the code is
         // prepended — otherwise it would show up twice.
         $products = Product::active()
-            ->with(['bomItems', 'incentives'])
+            ->with(['bomItems', 'incentives', 'bom'])
             ->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->integer('category_id')))
             ->orderBy('item_group_code')
             ->get(['id', 'name', 'item_group_code', 'image_path', 'unit_po', 'unit_export'])
@@ -290,6 +291,7 @@ class InquiryController extends Controller implements HasMiddleware
                     'image_url'   => $product->image_url,
                     'unit_po'     => $product->unit_po,
                     'unit_export' => $product->unit_export,
+                    'bom_key'     => $product->bom?->key ?: ($product->bom_id ? (string) $product->bom_id : null),
                     'bom'         => $product->bomItems->map(fn ($line) => [
                         'component_name' => $line->component_name,
                         'qty'            => (float) $line->qty,
@@ -446,19 +448,22 @@ class InquiryController extends Controller implements HasMiddleware
             'fobValues'  => FobValue::active()->orderBy('name')->pluck('name', 'id'),
             'currencies' => Currency::active()->orderBy('iso_code')->get()->pluck('label', 'id'),
             'defaultBomLines' => config('inquiry_bom.default_lines', []),
-            'bomTemplates' => collect(config('inquiry_bom.templates', []))->map(function (array $template, string $key) {
-                $lines = $template['lines'] ?? [];
-                $total = round(collect($lines)->sum(
-                    fn ($line) => (float) ($line['qty'] ?? 0) * (float) ($line['rate'] ?? 0)
-                ), 2);
+            'bomTemplates' => Bom::active()->with('lines')->orderBy('name')->get()
+                ->map->templatePayload()
+                ->values()
+                ->whenEmpty(fn () => collect(config('inquiry_bom.templates', []))->map(function (array $template, string $key) {
+                    $lines = $template['lines'] ?? [];
+                    $total = round(collect($lines)->sum(
+                        fn ($line) => (float) ($line['qty'] ?? 0) * (float) ($line['rate'] ?? 0)
+                    ), 2);
 
-                return [
-                    'key'   => $key,
-                    'name'  => $template['name'] ?? $key,
-                    'total' => $total,
-                    'lines' => $lines,
-                ];
-            })->values(),
+                    return [
+                        'key'   => $key,
+                        'name'  => $template['name'] ?? $key,
+                        'total' => $total,
+                        'lines' => $lines,
+                    ];
+                })->values()),
 
             // "I need a small image against every line which will be added
             // while making the bom cost ... a separate photo per trim type"

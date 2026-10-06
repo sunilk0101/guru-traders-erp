@@ -10,6 +10,7 @@ use App\Http\Controllers\Masters\JobberController;
 use App\Http\Controllers\Masters\MarkupController;
 use App\Http\Controllers\Masters\ProductController;
 use App\Http\Controllers\Masters\SupplierController;
+use App\Http\Controllers\Masters\BomController;
 use App\Http\Controllers\Masters\TrimAccessoryController;
 use App\Http\Controllers\Administration\CompanyProfileController;
 use App\Http\Controllers\Export\ExportDocumentChecklistController;
@@ -158,6 +159,10 @@ Route::middleware('auth')->group(function () {
         Route::patch('trim-accessories/{trimAccessory}/toggle-status', [TrimAccessoryController::class, 'toggleStatus'])
             ->name('trim-accessories.toggle-status');
         Route::resource('trim-accessories', TrimAccessoryController::class);
+
+        Route::patch('boms/{bom}/toggle-status', [BomController::class, 'toggleStatus'])
+            ->name('boms.toggle-status');
+        Route::resource('boms', BomController::class);
 
         /*
          * Order Formats. Bound as {format} rather than {documentFormat} — the

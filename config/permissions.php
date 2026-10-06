@@ -116,6 +116,7 @@ return [
             'category'  => ['label' => 'Categories'],
             'po-format' => ['label' => 'Order Formats'],
             'product'   => ['label' => 'Products'],
+            'bom'       => ['label' => 'BOM'],
             'buyer'     => ['label' => 'Buyers'],
             'supplier'  => ['label' => 'Suppliers'],
             'jobber'    => ['label' => 'Jobbers'],
@@ -225,7 +226,7 @@ return [
             'permissions' => [
                 'user.*', 'role.view', 'company-profile.*',
                 'category.*', 'po-format.*', 'product.*', 'buyer.*', 'supplier.*', 'jobber.*',
-                'agent.*', 'fob-value.*', 'markup.*',
+                'agent.*', 'fob-value.*', 'trim-accessory.*', 'bom.*', 'markup.*',
                 'inquiry.*', 'order-confirmation.*',
                 'purchase-order.*', 'inward-entry.*',
                 'packing.*', 'export-document.*',
@@ -238,7 +239,7 @@ return [
         'Merchandising & Manufacturing' => [
             'description' => 'Handles inquiry to purchase order, suppliers and products.',
             'permissions' => [
-                'category.view', 'po-format.view', 'product.*', 'buyer.view',
+                'category.view', 'po-format.view', 'product.*', 'bom.*', 'trim-accessory.*', 'buyer.view',
                 'supplier.*', 'agent.view',
                 'inquiry.*', 'order-confirmation.*',
                 'purchase-order.*', 'inward-entry.view',

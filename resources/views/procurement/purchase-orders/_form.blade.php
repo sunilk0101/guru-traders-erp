@@ -69,6 +69,8 @@
                 $iUnit = $isArr ? ($item['unit'] ?? '') : $item->unit;
                 $iCostPrice = $isArr ? ($item['cost_price'] ?? '') : $item->cost_price;
                 $iRemarks = $isArr ? ($item['remarks'] ?? '') : $item->remarks;
+                $iImagePath = $isArr ? ($item['existing_image_path'] ?? ($item['image_path'] ?? '')) : $item->image_path;
+                $iImageUrl = $isArr ? ($item['image_url'] ?? '') : ($item->image_url ?? '');
                 $iColours = $isArr ? ($item['colours'] ?? []) : $item->colours;
                 $iProductLabel = $isArr ? null : $item->product?->name;
             @endphp
@@ -105,6 +107,16 @@
                     <div class="col-md-6">
                         <label class="form-label small">Remarks</label>
                         <input type="text" class="form-control form-control-sm js-field" data-field="remarks" maxlength="500" value="{{ $iRemarks }}">
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label small">Item photo</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <img class="js-item-image-preview rounded border bg-body-tertiary {{ $iImageUrl ? '' : 'd-none' }}"
+                                 src="{{ $iImageUrl }}" alt=""
+                                 style="width:48px;height:48px;object-fit:cover">
+                            <input type="file" class="form-control form-control-sm js-item-image" accept="image/png,image/jpeg,image/webp">
+                            <input type="hidden" class="js-field" data-field="existing_image_path" value="{{ $iImagePath }}">
+                        </div>
                     </div>
                 </div>
                 <div class="row g-2 mt-1">
@@ -525,6 +537,11 @@ document.addEventListener('DOMContentLoaded', function () {
             appendHidden('items[' + i + '][unit]', field('unit'));
             appendHidden('items[' + i + '][cost_price]', field('cost_price'));
             appendHidden('items[' + i + '][remarks]', field('remarks'));
+            appendHidden('items[' + i + '][existing_image_path]', field('existing_image_path'));
+            const fileInput = itemEl.querySelector('.js-item-image');
+            if (fileInput) {
+                fileInput.name = 'items[' + i + '][image]';
+            }
 
             itemEl.querySelectorAll(':scope .colours-wrap > .inquiry-colour').forEach(function (colourEl, j) {
                 appendHidden('items[' + i + '][colours][' + j + '][colour]', colourEl.querySelector('.js-colour-name').value);
@@ -541,6 +558,15 @@ document.addEventListener('DOMContentLoaded', function () {
             appendHidden('timeline[' + i + '][note]', row.querySelector('.js-timeline-note').value);
             appendHidden('timeline[' + i + '][qty]', row.querySelector('.js-timeline-qty').value);
         });
+    });
+
+    itemsWrap.addEventListener('change', function (e) {
+        if (! e.target.classList.contains('js-item-image')) return;
+        const preview = e.target.closest('.inquiry-item')?.querySelector('.js-item-image-preview');
+        const file = e.target.files && e.target.files[0];
+        if (! preview || ! file) return;
+        preview.src = URL.createObjectURL(file);
+        preview.classList.remove('d-none');
     });
 
     /* --------------------------------- Init --------------------------------- */
@@ -589,6 +615,15 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="col-md-6">
                 <label class="form-label small">Remarks</label>
                 <input type="text" class="form-control form-control-sm js-field" data-field="remarks" maxlength="500">
+            </div>
+            <div class="col-md-12">
+                <label class="form-label small">Item photo</label>
+                <div class="d-flex align-items-center gap-2">
+                    <img class="js-item-image-preview rounded border bg-body-tertiary d-none" alt=""
+                         style="width:48px;height:48px;object-fit:cover">
+                    <input type="file" class="form-control form-control-sm js-item-image" accept="image/png,image/jpeg,image/webp">
+                    <input type="hidden" class="js-field" data-field="existing_image_path" value="">
+                </div>
             </div>
         </div>
         <div class="row g-2 mt-1">

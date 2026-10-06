@@ -206,6 +206,7 @@ class InquiryService
                     'unit'           => $bomRow['unit'] ?? null,
                     'is_custom'      => (bool) ($bomRow['is_custom'] ?? true),
                     'remarks'        => $bomRow['remarks'] ?? null,
+                    'image_path'     => $bomRow['image_path'] ?? null,
                 ]);
             }
 

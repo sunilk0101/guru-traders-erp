@@ -103,7 +103,7 @@
                      Contract is absent: it never had a screen. A contract
                      number is a field on the order for direct-order buyers.
                 --}}
-                @if($canAny(['category.view', 'po-format.view', 'product.view', 'buyer.view', 'supplier.view', 'jobber.view', 'agent.view', 'fob-value.view', 'markup.view']))
+                @if($canAny(['category.view', 'po-format.view', 'product.view', 'bom.view', 'buyer.view', 'supplier.view', 'jobber.view', 'agent.view', 'fob-value.view', 'trim-accessory.view', 'markup.view']))
                     <li class="nav-header">Masters</li>
 
                     @can('category.view')
@@ -127,6 +127,14 @@
                             <a href="{{ route('masters.products.index') }}"
                                class="nav-link {{ request()->routeIs('masters.products.*') ? 'active' : '' }}">
                                 <i class="nav-icon bi bi-box-seam"></i><p>Products</p>
+                            </a>
+                        </li>
+                    @endcan
+                    @can('bom.view')
+                        <li class="nav-item">
+                            <a href="{{ route('masters.boms.index') }}"
+                               class="nav-link {{ request()->routeIs('masters.boms.*') ? 'active' : '' }}">
+                                <i class="nav-icon bi bi-diagram-3"></i><p>BOM</p>
                             </a>
                         </li>
                     @endcan

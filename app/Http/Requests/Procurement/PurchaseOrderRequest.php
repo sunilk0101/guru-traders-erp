@@ -41,6 +41,8 @@ abstract class PurchaseOrderRequest extends FormRequest
             'items.*.unit'                 => ['nullable', 'string', 'max:20'],
             'items.*.cost_price'           => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
             'items.*.remarks'              => ['nullable', 'string', 'max:1000'],
+            'items.*.image'                => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'items.*.existing_image_path'  => ['nullable', 'string', 'max:255'],
 
             'items.*.colours'                => ['nullable', 'array', 'max:50'],
             'items.*.colours.*.colour'       => ['nullable', 'string', 'max:60'],

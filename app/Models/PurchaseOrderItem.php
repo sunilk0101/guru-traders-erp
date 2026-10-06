@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class PurchaseOrderItem extends Model
 {
@@ -21,6 +23,7 @@ class PurchaseOrderItem extends Model
         'qty',
         'amount',
         'remarks',
+        'image_path',
         'custom_values',
     ];
 
@@ -54,5 +57,10 @@ class PurchaseOrderItem extends Model
     public function colours(): HasMany
     {
         return $this->hasMany(PurchaseOrderItemColour::class)->orderBy('sort_order');
+    }
+
+    protected function imageUrl(): Attribute
+    {
+        return Attribute::get(fn () => $this->image_path ? Storage::disk('public')->url($this->image_path) : null);
     }
 }

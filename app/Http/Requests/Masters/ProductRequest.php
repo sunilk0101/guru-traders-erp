@@ -82,6 +82,7 @@ abstract class ProductRequest extends FormRequest
 
             'price_band_id'           => ['nullable', 'integer', Rule::exists('price_bands', 'id')],
             'gst_rate_id'             => ['nullable', 'integer', Rule::exists('gst_rates', 'id')],
+            'bom_id'                  => ['nullable', 'integer', Rule::exists('boms', 'id')],
 
             'fabric_length_mtr'       => ['nullable', 'numeric', 'min:0', 'max:99999.999'],
             'fabric_width_inch'       => ['nullable', 'numeric', 'min:0', 'max:99999.999'],

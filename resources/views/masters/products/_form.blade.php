@@ -305,10 +305,49 @@
 
 {{-- ==================== BOM / COMPONENTS (Task 13) ==================== --}}
 <x-ui.form-section title="BOM / Components" icon="bi-diagram-3"
-                   subtitle="Optional. Free-text components per finished piece. Leave empty if this product has no BOM.">
+                   subtitle="Pick a named pack from BOM Master. Extra free-text lines below are optional.">
     @php
         $bomRows = old('bom', $product?->bomItems?->toArray() ?? []);
+        $selectedBomId = old('bom_id', $product?->bom_id);
+        $boms = $boms ?? collect();
     @endphp
+    <div class="row g-2 align-items-end mb-3">
+        <div class="col-md-8">
+            <label class="form-label small">BOM pack</label>
+            <select name="bom_id" id="product-bom-id" class="form-select form-select-sm">
+                <option value="">— None —</option>
+                @foreach($boms as $pack)
+                    <option value="{{ $pack->id }}" @selected((string) $selectedBomId === (string) $pack->id)>
+                        {{ $pack->name }} (₹{{ number_format($pack->lineTotal(), 2) }})
+                    </option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-md-4">
+            @can('bom.create')
+                <a href="{{ route('masters.boms.create') }}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-plus-lg me-1"></i>New BOM
+                </a>
+            @endcan
+            @can('bom.view')
+                <a href="{{ route('masters.boms.index') }}" class="btn btn-sm btn-outline-secondary">View BOM master</a>
+            @endcan
+        </div>
+    </div>
+    <div id="product-bom-preview" class="table-responsive mb-3 d-none">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+                <tr class="small">
+                    <th style="width:52px">Photo</th>
+                    <th>Trim / Accessory</th>
+                    <th>Size</th>
+                    <th class="text-end">Qty</th>
+                    <th class="text-end">Rate</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
     <div id="bom-wrap">
         @forelse($bomRows as $index => $row)
             <div class="row g-2 align-items-end mb-2 bom-row" data-bom-row>
@@ -449,6 +488,32 @@ document.addEventListener('DOMContentLoaded', function () {
     /* ------------------------------------------------------------------ *
      * Task 13 — Product BOM rows (free-text, empty allowed).
      * ------------------------------------------------------------------ */
+    const bomPacks = @json(($boms ?? collect())->mapWithKeys(fn ($pack) => [$pack->id => $pack->templatePayload()]));
+
+    function renderProductBomPreview() {
+        const select = document.getElementById('product-bom-id');
+        const preview = document.getElementById('product-bom-preview');
+        if (! select || ! preview) return;
+        const pack = bomPacks[select.value];
+        const body = preview.querySelector('tbody');
+        if (! pack || ! pack.lines || ! pack.lines.length) {
+            preview.classList.add('d-none');
+            body.innerHTML = '';
+            return;
+        }
+        body.innerHTML = pack.lines.map(function (line) {
+            const img = line.image_url
+                ? '<img src="' + line.image_url + '" alt="" class="rounded border" style="width:32px;height:32px;object-fit:cover">'
+                : '<span class="text-body-secondary">—</span>';
+            return '<tr><td>' + img + '</td><td>' + (line.component_name || '') + '</td><td>'
+                + (line.size || '—') + '</td><td class="text-end">' + (line.qty ?? '') + '</td><td class="text-end">'
+                + (line.rate ?? '') + '</td></tr>';
+        }).join('');
+        preview.classList.remove('d-none');
+    }
+
+    document.getElementById('product-bom-id')?.addEventListener('change', renderProductBomPreview);
+    renderProductBomPreview();
     const bomWrap = document.getElementById('bom-wrap');
     const bomUnitEntries = @json($units);
 

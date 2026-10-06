@@ -8,7 +8,7 @@
             </a>
         </x-slot>
 
-        <form action="{{ route('procurement.purchase-orders.store') }}" method="POST" id="po-form">
+        <form action="{{ route('procurement.purchase-orders.store') }}" method="POST" id="po-form" enctype="multipart/form-data">
             @csrf
             @include('procurement.purchase-orders._form', ['purchaseOrder' => null])
         </form>

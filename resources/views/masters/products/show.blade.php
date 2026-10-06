@@ -143,8 +143,48 @@
             </div>
             <div class="col-12 mt-2">
                 <h6 class="text-uppercase text-body-secondary fw-bold small border-bottom pb-2 mb-3">BOM / Components</h6>
+                @if($product->bom)
+                    <p class="mb-2">Pack: <strong>{{ $product->bom->name }}</strong>
+                        @can('bom.view')
+                            <a href="{{ route('masters.boms.show', $product->bom) }}" class="small ms-1">Open in BOM master</a>
+                        @endcan
+                    </p>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th style="width:52px">Photo</th>
+                                    <th>Trim / Accessory</th>
+                                    <th>Size</th>
+                                    <th class="text-end">Qty</th>
+                                    <th class="text-end">Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($product->bom->lines as $line)
+                                    <tr>
+                                        <td>
+                                            @if($line->image_url)
+                                                <img src="{{ $line->image_url }}" alt="{{ $line->component_name }}"
+                                                     class="rounded border" style="width:32px;height:32px;object-fit:cover">
+                                            @else
+                                                —
+                                            @endif
+                                        </td>
+                                        <td>{{ $line->component_name }}</td>
+                                        <td>{{ $line->size ?: '—' }}</td>
+                                        <td class="text-end font-monospace">{{ $line->qty }}</td>
+                                        <td class="text-end font-monospace">{{ $line->rate !== null ? $line->rate : '—' }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
                 @if($product->bomItems->isEmpty())
-                    <p class="text-body-secondary small mb-0">No BOM components.</p>
+                    @unless($product->bom)
+                        <p class="text-body-secondary small mb-0">No BOM components.</p>
+                    @endunless
                 @else
                     <div class="table-responsive">
                         <table class="table table-sm align-middle mb-0">

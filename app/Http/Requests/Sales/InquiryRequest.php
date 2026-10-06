@@ -124,6 +124,7 @@ abstract class InquiryRequest extends FormRequest
             'items.*.bom.*.unit'              => ['nullable', 'string', 'max:20'],
             'items.*.bom.*.is_custom'         => ['nullable', 'boolean'],
             'items.*.bom.*.remarks'           => ['nullable', 'string', 'max:500'],
+            'items.*.bom.*.image_path'        => ['nullable', 'string', 'max:255'],
 
             'followups'                => ['nullable', 'array', 'max:100'],
             'followups.*.id'           => ['nullable', 'integer'],

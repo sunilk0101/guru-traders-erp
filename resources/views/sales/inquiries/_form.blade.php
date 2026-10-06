@@ -757,7 +757,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const nameInput = rowEl.querySelector('.js-bom-name');
         const thumb = rowEl.querySelector('.js-trim-thumb');
         if (! nameInput || ! thumb) return;
-        const url = trimThumbUrl(nameInput.value);
+        const own = rowEl.querySelector('.js-bom-image-url')?.value
+            || rowEl.dataset.imageUrl
+            || '';
+        const url = own || trimThumbUrl(nameInput.value);
         if (url) {
             thumb.src = url;
             thumb.classList.remove('d-none');
@@ -794,7 +797,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function applyProductBom(itemEl) {
-        // Product BOM trims stay in Product Master. Inquiry uses the BOM cost dropdown.
+        const productSelect = itemEl.querySelector('.js-product-select');
+        const opt = productSelect && productSelect.selectedOptions[0];
+        const bomKey = opt && opt.dataset.bomKey;
+        if (bomKey) {
+            applyBomTemplate(itemEl, bomKey);
+        }
     }
 
     function findBomTemplate(key) {
@@ -905,6 +913,11 @@ document.addEventListener('DOMContentLoaded', function () {
         row.querySelector('.js-bom-qty').value = data.qty != null ? data.qty : 1;
         row.querySelector('.js-bom-rate').value = data.rate != null ? data.rate : '';
         row.querySelector('.js-bom-remarks').value = data.remarks || '';
+        const imageUrlEl = row.querySelector('.js-bom-image-url');
+        const imagePathEl = row.querySelector('.js-bom-image-path');
+        if (imageUrlEl) imageUrlEl.value = data.image_url || '';
+        if (imagePathEl) imagePathEl.value = data.image_path || '';
+        if (data.image_url) row.dataset.imageUrl = data.image_url;
         const q = parseFloat(row.querySelector('.js-bom-qty').value) || 0;
         const r = parseFloat(row.querySelector('.js-bom-rate').value) || 0;
         row.querySelector('.js-bom-total').value = (q * r) ? (q * r).toFixed(2) : '';
@@ -957,6 +970,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                     if (row.bom !== undefined) {
                         opt.dataset.bom = JSON.stringify(row.bom || []);
+                    }
+                    if (row.bom_key !== undefined) {
+                        opt.dataset.bomKey = row.bom_key || '';
                     }
                     if (row.incentives !== undefined) {
                         opt.dataset.incentives = JSON.stringify(row.incentives || []);
@@ -1571,6 +1587,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (e.target.classList.contains('js-product-select')) {
             const itemEl = itemFromEventTarget(e.target);
             applyProductUnit(itemEl);
+            applyProductBom(itemEl);
             updateProductThumb(itemEl);
             renderIncentiveEstimate(itemEl);
             recalcItem(itemEl);
@@ -1715,6 +1732,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 appendHidden('items[' + i + '][bom][' + b + '][rate]', bomEl.querySelector('.js-bom-rate')?.value || '');
                 appendHidden('items[' + i + '][bom][' + b + '][unit]', bomEl.querySelector('.js-bom-unit')?.value || '');
                 appendHidden('items[' + i + '][bom][' + b + '][remarks]', bomEl.querySelector('.js-bom-remarks').value);
+                appendHidden('items[' + i + '][bom][' + b + '][image_path]', bomEl.querySelector('.js-bom-image-path')?.value || '');
                 appendHidden('items[' + i + '][bom][' + b + '][is_custom]', bomEl.dataset.isCustom === '0' ? '0' : '1');
             });
 
@@ -1776,9 +1794,13 @@ document.addEventListener('DOMContentLoaded', function () {
         <td>
             <div class="d-flex align-items-center gap-1">
                 <img class="js-trim-thumb rounded border bg-body-tertiary d-none flex-shrink-0" alt=""
-                     style="width:22px;height:22px;object-fit:cover">
-                <input type="text" class="form-control form-control-sm js-bom-name" maxlength="200" placeholder="Trim / accessory">
+                     style="width:36px;height:36px;object-fit:cover">
+                <input type="hidden" class="js-bom-image-url">
+                <input type="hidden" class="js-bom-image-path">
             </div>
+        </td>
+        <td>
+            <input type="text" class="form-control form-control-sm js-bom-name" maxlength="200" placeholder="Trim / accessory">
         </td>
         <td><input type="text" class="form-control form-control-sm js-bom-size" maxlength="60" placeholder="Size"></td>
         <td><input type="text" class="form-control form-control-sm js-bom-remarks" maxlength="500" placeholder="Description"></td>

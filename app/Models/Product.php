@@ -38,6 +38,7 @@ class Product extends Model
         'drawback_sr_no',
         'price_band_id',
         'gst_rate_id',
+        'bom_id',
         'fabric_length_mtr',
         'fabric_width_inch',
         'description',
@@ -81,6 +82,11 @@ class Product extends Model
     public function gstRate(): BelongsTo
     {
         return $this->belongsTo(GstRate::class);
+    }
+
+    public function bom(): BelongsTo
+    {
+        return $this->belongsTo(Bom::class);
     }
 
     public function incentives(): HasMany

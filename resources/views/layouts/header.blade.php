@@ -25,6 +25,7 @@
                         'masters.categories'         => 'Categories',
                         'masters.formats'             => 'Order Formats',
                         'masters.products'            => 'Products',
+                        'masters.boms'                => 'BOM',
                         'masters.buyers'               => 'Buyers',
                         'masters.suppliers'            => 'Suppliers',
                         'masters.jobbers'               => 'Jobbers',

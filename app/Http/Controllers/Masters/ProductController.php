@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Masters;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Masters\StoreProductRequest;
 use App\Http\Requests\Masters\UpdateProductRequest;
+use App\Models\Bom;
 use App\Models\CalculationBasis;
 use App\Models\Category;
 use App\Models\DocumentFormatUnit;
@@ -72,13 +73,14 @@ class ProductController extends Controller implements HasMiddleware
      */
     public function duplicate(Product $product): View
     {
-        $product->load(['incentives', 'bomItems']);
+        $product->load(['incentives', 'bomItems', 'bom.lines']);
 
         $draft = $product->replicate();
         $draft->item_group_code = null;
         $draft->name = $product->name.' (Copy)';
         $draft->setRelation('incentives', $product->incentives);
         $draft->setRelation('bomItems', $product->bomItems);
+        $draft->setRelation('bom', $product->bom);
 
         return view('masters.products.create', $this->formData($product) + [
             'product' => $draft,
@@ -100,7 +102,7 @@ class ProductController extends Controller implements HasMiddleware
         return view('masters.products.show', [
             'product' => $product->load([
                 'category', 'priceBand', 'gstRate',
-                'incentives.calculationBasis', 'bomItems', 'creator', 'updater',
+                'incentives.calculationBasis', 'bom.lines', 'bomItems', 'creator', 'updater',
             ]),
         ]);
     }
@@ -108,7 +110,7 @@ class ProductController extends Controller implements HasMiddleware
     public function edit(Product $product): View
     {
         return view('masters.products.edit', $this->formData($product) + [
-            'product' => $product->load(['incentives', 'bomItems']),
+            'product' => $product->load(['incentives', 'bomItems', 'bom.lines']),
         ]);
     }
 
@@ -284,6 +286,13 @@ class ProductController extends Controller implements HasMiddleware
             'priceBands'        => $priceBandsQuery->orderBy('code')->get()->pluck('label', 'id'),
             'gstRates'          => $gstRatesQuery->orderBy('rate')->get()->pluck('label', 'id'),
             'calculationBases'  => CalculationBasis::active()->orderBy('name')->pluck('name', 'id'),
+            'boms'              => Bom::query()
+                ->when($product?->bom_id, fn ($q) => $q->where(function ($inner) use ($product) {
+                    $inner->active()->orWhere('id', $product->bom_id);
+                }), fn ($q) => $q->active())
+                ->with('lines')
+                ->orderBy('name')
+                ->get(),
         ];
     }
 
